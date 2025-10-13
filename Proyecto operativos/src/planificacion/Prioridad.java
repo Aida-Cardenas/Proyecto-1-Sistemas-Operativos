@@ -12,7 +12,7 @@ public class Prioridad implements Planificador {
         this.esPreemptive = esPreemptive;
     }
     
-    @Override
+
     public Proceso seleccionarSiguienteProceso(Cola<Proceso> colaListos) {
         if (colaListos.estaVacia()) {
             return null;
@@ -54,27 +54,26 @@ public class Prioridad implements Planificador {
         return mayorPrioridad;
     }
     
-    @Override
+
     public void agregarProceso(Proceso proceso, Cola<Proceso> colaListos) {
         colaListos.encolar(proceso);
     }
     
-    @Override
+
     public String getNombre() {
         return esPreemptive ? "Prioridad Preemptive" : "Prioridad Non-Preemptive";
     }
     
-    @Override
+
     public void setQuantum(int quantum) {
         // Prioridad no usa quantum
     }
-    
-    @Override
+
     public int getQuantum() {
         return 0;
     }
     
-    @Override
+
     public void reiniciar() {
         // No hay estado que reiniciar
     }

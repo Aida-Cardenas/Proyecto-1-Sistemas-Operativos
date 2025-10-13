@@ -12,7 +12,7 @@ public class RoundRobin implements Planificador {
         this.quantumRestante = quantum;
     }
     
-    @Override
+
     public Proceso seleccionarSiguienteProceso(Cola<Proceso> colaListos) {
         if (colaListos.estaVacia()) {
             return null;
@@ -21,7 +21,7 @@ public class RoundRobin implements Planificador {
         return colaListos.desencolar();
     }
     
-    @Override
+
     public void agregarProceso(Proceso proceso, Cola<Proceso> colaListos) {
         colaListos.encolar(proceso);
     }
@@ -38,18 +38,18 @@ public class RoundRobin implements Planificador {
         quantumRestante = quantum;
     }
     
-    @Override
+
     public String getNombre() {
         return "Round Robin (Q=" + quantum + ")";
     }
     
-    @Override
+
     public void setQuantum(int quantum) {
         this.quantum = quantum;
         this.quantumRestante = quantum;
     }
     
-    @Override
+
     public int getQuantum() {
         return quantum;
     }
@@ -58,7 +58,7 @@ public class RoundRobin implements Planificador {
         return quantumRestante;
     }
     
-    @Override
+
     public void reiniciar() {
         quantumRestante = quantum;
     }

@@ -39,8 +39,29 @@ public class Simulador extends Thread {
    public Simulador() {
    }
 
-   // Métodos básicos vacíos
+   // Método principal del thread 
    public void run() {
+      this.ejecutando = true;
+      this.registrarEvento("=== SIMULADOR INICIADO ===");
+
+      while(this.ejecutando) {
+         if (this.pausado) {
+            try {
+               Thread.sleep(100L);
+            } catch (InterruptedException var2) {
+               var2.printStackTrace();
+            }
+         } else {
+            try {
+               this.ejecutarCiclo();
+               Thread.sleep((long)this.duracionCiclo);
+            } catch (InterruptedException var3) {
+               var3.printStackTrace();
+            }
+         }
+      }
+
+      this.registrarEvento("=== SIMULADOR DETENIDO ===");
    }
 
    private void ejecutarCiclo() {
@@ -119,23 +140,28 @@ public class Simulador extends Thread {
 
    // Setters
    public void setDuracionCiclo(int milisegundos) {
+      this.duracionCiclo = milisegundos;
    }
 
    public void setListener(SimuladorListener listener) {
+      this.listener = listener;
    }
 
-   // Métodos de control
+   // Métodos de control del thread - Para manejar play,pause,stop
    public void pausar() {
+      this.pausado = true;
    }
 
    public void reanudar() {
+      this.pausado = false;
    }
 
    public void detener() {
+      this.ejecutando = false;
    }
 
    public boolean isEjecutando() {
-      return false;
+      return this.ejecutando && !this.pausado;
    }
 
    public void reiniciarSimulacion() {

@@ -24,7 +24,7 @@ public class Prioridad implements Planificador {
             return null;
         }
         
-        // Encontrar el proceso con mayor prioridad (menor número = mayor prioridad)
+        //proceso con mayor prioridad (menor número = mayor prioridad)
         Proceso mayorPrioridad = procesos.obtener(0);
         int menorNumeroPrioridad = mayorPrioridad.getPcb().getPrioridad();
         

@@ -11,6 +11,16 @@ import planificacion.FCFS;
 import planificacion.Planificador;
 import planificacion.RoundRobin;
 
+/**
+ * Simulador - Thread principal del sistema operativo simulado
+ * 
+ * Hasta ahora:
+ * - Control básico del thread (run, pausar, reanudar, detener)
+ * - Ciclo de ejecución principal con manejo de procesos
+ * - Procesamiento de excepciones I/O
+ * 
+ * Próxima implementación: Gestión de suspensión de procesos
+ */
 public class Simulador extends Thread {
    // Variables de estado de las colas
    private Cola<Proceso> colaListos = new Cola();
@@ -170,7 +180,40 @@ public class Simulador extends Thread {
       }
    }
 
+   // Procesamiento de excepciones I/O - Revisar procesos bloqueados
    private void procesarExcepciones() {
+      if (!this.colaBloqueados.estaVacia()) {
+         Lista<Proceso> procesosADesbloquear = new Lista();
+         Lista<Proceso> procesosBloqueados = this.colaBloqueados.obtenerTodos();
+
+         int i;
+         Proceso p;
+         // Revisar cada proceso bloqueado para ver si completó su I/O
+         for(i = 0; i < procesosBloqueados.tamaño(); ++i) {
+            p = (Proceso)procesosBloqueados.obtener(i);
+            if (p.procesarExcepcion()) {
+               procesosADesbloquear.agregar(p);
+               this.registrarEvento("Proceso " + p.getPcb().getNombre() + " completó excepción I/O");
+            }
+         }
+
+         // Mover los procesos desbloqueados de vuelta a la cola de listos
+         for(i = 0; i < procesosADesbloquear.tamaño(); ++i) {
+            p = (Proceso)procesosADesbloquear.obtener(i);
+            Lista<Proceso> temp = this.colaBloqueados.obtenerTodos();
+            this.colaBloqueados.limpiar();
+
+            for(int j = 0; j < temp.tamaño(); ++j) {
+               if (temp.obtener(j) != p) {
+                  this.colaBloqueados.encolar((Proceso)temp.obtener(j));
+               }
+            }
+
+            p.getPcb().setEstado(EstadoProceso.LISTO);
+            this.colaListos.encolar(p);
+            this.registrarEvento("Proceso " + p.getPcb().getNombre() + " vuelve a LISTO");
+         }
+      }
    }
 
    public void agregarProceso(Proceso proceso) {

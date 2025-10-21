@@ -21,7 +21,7 @@ public class PanelPCB extends JPanel {
     private void initComponents() {
         setLayout(new BorderLayout(5, 5));
         setBorder(BorderFactory.createTitledBorder("Información de PCBs"));
-        
+
         JPanel panelSuperior = new JPanel(new BorderLayout());
         panelSuperior.setBorder(BorderFactory.createTitledBorder("Proceso en CPU"));
         lblProcesoEnCPU = new JLabel("Ninguno", SwingConstants.CENTER);
@@ -39,7 +39,7 @@ public class PanelPCB extends JPanel {
             }
         };
         
-    tablaPCB = new JTable(modeloTabla);
+        tablaPCB = new JTable(modeloTabla);
         tablaPCB.setFont(new Font("Monospaced", Font.PLAIN, 12));
         tablaPCB.getTableHeader().setFont(new Font("Monospaced", Font.BOLD, 12));
         tablaPCB.setRowHeight(25);
@@ -49,8 +49,8 @@ public class PanelPCB extends JPanel {
     }
     
     public void actualizar() {
-    Proceso actual = simulador.getProcesoActual();
-    if (actual != null) {
+        Proceso actual = simulador.getProcesoActual();
+        if (actual != null) {
             lblProcesoEnCPU.setText(String.format("<html><center>%s<br/>PC: %d | MAR: %d</center></html>",
                 actual.getPcb().getNombre(),
                 actual.getPcb().getProgramCounter(),
@@ -62,10 +62,13 @@ public class PanelPCB extends JPanel {
         }
         
         modeloTabla.setRowCount(0);
+        
         Lista<Proceso> todosLosProcesos = simulador.getTodosLosProcesos();
+        
         for (int i = 0; i < todosLosProcesos.tamaño(); i++) {
             Proceso p = todosLosProcesos.obtener(i);
             PCB pcb = p.getPcb();
+            
             Object[] fila = {
                 pcb.getId(),
                 pcb.getNombre(),
@@ -74,6 +77,7 @@ public class PanelPCB extends JPanel {
                 pcb.getMemoryAddressRegister(),
                 pcb.getPrioridad()
             };
+            
             modeloTabla.addRow(fila);
         }
     }

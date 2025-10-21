@@ -10,8 +10,10 @@ public class PanelMetricas extends JPanel {
     private JLabel lblUtilizacionCPU;
     private JLabel lblTiempoEspera;
     private JLabel lblTiempoRespuesta;
+    private JLabel lblTiempoRetorno;
     private JLabel lblProcesosCompletados;
     private JLabel lblCiclosTotales;
+    private JLabel lblEquidad;
     
     public PanelMetricas(Simulador simulador) {
         this.simulador = simulador;
@@ -19,68 +21,155 @@ public class PanelMetricas extends JPanel {
     }
     
     private void initComponents() {
-        setLayout(new GridLayout(2, 3, 10, 10));
+        setLayout(new GridLayout(2, 4, 10, 10));
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         
-        JPanel panelThroughput = crearPanelMetrica("Throughput", "0.00 proc/seg");
-        lblThroughput = (JLabel) ((JPanel) panelThroughput.getComponent(1)).getComponent(0);
-        add(panelThroughput);
+        // Fila 1: Métricas de rendimiento
+        add(crearPanelMetrica("Throughput", "0.00 proc/seg", Color.BLUE));
+        add(crearPanelMetrica("Utilización CPU", "0.00 %", Color.GREEN));
+        add(crearPanelMetrica("T. Espera Prom.", "0.00 ms", Color.ORANGE));
+        add(crearPanelMetrica("T. Respuesta Prom.", "0.00 ms", Color.MAGENTA));
         
-        JPanel panelUtilizacion = crearPanelMetrica("Utilización CPU", "0.00 %");
-        lblUtilizacionCPU = (JLabel) ((JPanel) panelUtilizacion.getComponent(1)).getComponent(0);
-        add(panelUtilizacion);
+        // Fila 2: Contadores y métricas adicionales
+        add(crearPanelMetrica("T. Retorno Prom.", "0.00 ms", Color.CYAN));
+        add(crearPanelMetrica("Proc. Completados", "0", Color.RED));
+        add(crearPanelMetrica("Ciclos Totales", "0", Color.DARK_GRAY));
+        add(crearPanelMetrica("Equidad", "0.00", new Color(128, 0, 128)));
         
-        JPanel panelEspera = crearPanelMetrica("Tiempo Espera Promedio", "0.00 ms");
-        lblTiempoEspera = (JLabel) ((JPanel) panelEspera.getComponent(1)).getComponent(0);
-        add(panelEspera);
-        
-        JPanel panelRespuesta = crearPanelMetrica("Tiempo Respuesta Promedio", "0.00 ms");
-        lblTiempoRespuesta = (JLabel) ((JPanel) panelRespuesta.getComponent(1)).getComponent(0);
-        add(panelRespuesta);
-        
-        JPanel panelCompletados = crearPanelMetrica("Procesos Completados", "0");
-        lblProcesosCompletados = (JLabel) ((JPanel) panelCompletados.getComponent(1)).getComponent(0);
-        add(panelCompletados);
-        
-        JPanel panelCiclos = crearPanelMetrica("Ciclos Totales", "0");
-        lblCiclosTotales = (JLabel) ((JPanel) panelCiclos.getComponent(1)).getComponent(0);
-        add(panelCiclos);
+        // Obtener referencias a los labels después de crear los paneles
+        obtenerReferenciasLabels();
     }
     
-    private JPanel crearPanelMetrica(String titulo, String valorInicial) {
+    private JPanel crearPanelMetrica(String titulo, String valorInicial, Color colorValor) {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(BorderFactory.createLineBorder(Color.GRAY, 1));
+        panel.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(Color.GRAY, 1),
+            BorderFactory.createEmptyBorder(5, 5, 5, 5)
+        ));
         panel.setBackground(Color.WHITE);
         
+        // Título de la métrica
         JLabel lblTitulo = new JLabel(titulo, SwingConstants.CENTER);
-        lblTitulo.setFont(new Font("Arial", Font.BOLD, 12));
-        lblTitulo.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+        lblTitulo.setFont(new Font("Arial", Font.BOLD, 11));
+        lblTitulo.setForeground(Color.DARK_GRAY);
         panel.add(lblTitulo, BorderLayout.NORTH);
         
-        JPanel panelValor = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        panelValor.setBackground(Color.WHITE);
-        JLabel lblValor = new JLabel(valorInicial);
-        lblValor.setFont(new Font("Monospaced", Font.BOLD, 18));
-        lblValor.setForeground(new Color(0, 100, 200));
-        panelValor.add(lblValor);
-        panel.add(panelValor, BorderLayout.CENTER);
+        // Valor de la métrica
+        JLabel lblValor = new JLabel(valorInicial, SwingConstants.CENTER);
+        lblValor.setFont(new Font("Monospaced", Font.BOLD, 16));
+        lblValor.setForeground(colorValor);
+        lblValor.setName(titulo); // Para identificar el label después
+        panel.add(lblValor, BorderLayout.CENTER);
         
         return panel;
     }
     
+    private void obtenerReferenciasLabels() {
+        Component[] componentes = getComponents();
+        for (Component comp : componentes) {
+            if (comp instanceof JPanel) {
+                JPanel panel = (JPanel) comp;
+                Component[] subComp = panel.getComponents();
+                for (Component sub : subComp) {
+                    if (sub instanceof JLabel) {
+                        JLabel label = (JLabel) sub;
+                        String nombre = label.getName();
+                        if (nombre != null) {
+                            asignarLabelPorNombre(nombre, label);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    private void asignarLabelPorNombre(String nombre, JLabel label) {
+        switch (nombre) {
+            case "Throughput":
+                lblThroughput = label;
+                break;
+            case "Utilización CPU":
+                lblUtilizacionCPU = label;
+                break;
+            case "T. Espera Prom.":
+                lblTiempoEspera = label;
+                break;
+            case "T. Respuesta Prom.":
+                lblTiempoRespuesta = label;
+                break;
+            case "T. Retorno Prom.":
+                lblTiempoRetorno = label;
+                break;
+            case "Proc. Completados":
+                lblProcesosCompletados = label;
+                break;
+            case "Ciclos Totales":
+                lblCiclosTotales = label;
+                break;
+            case "Equidad":
+                lblEquidad = label;
+                break;
+        }
+    }
+    
     public void actualizar() {
+        if (simulador == null) return;
+        
         Metricas metricas = simulador.getMetricas();
         
-        lblThroughput.setText(String.format("%.2f proc/seg", metricas.calcularThroughput()));
-        lblUtilizacionCPU.setText(String.format("%.2f %%", metricas.calcularUtilizacionCPU()));
-        lblTiempoEspera.setText(String.format("%.2f ms", metricas.calcularTiempoEsperaPromedio()));
-        lblTiempoRespuesta.setText(String.format("%.2f ms", metricas.calcularTiempoRespuestaPromedio()));
-        lblProcesosCompletados.setText(String.valueOf(metricas.getProcesosCompletados()));
-        lblCiclosTotales.setText(String.valueOf(metricas.getCiclosTotales()));
+        // Actualizar throughput
+        if (lblThroughput != null) {
+            double throughput = metricas.calcularThroughput();
+            lblThroughput.setText(String.format("%.4f proc/seg", throughput));
+        }
+        
+        // Actualizar utilización CPU
+        if (lblUtilizacionCPU != null) {
+            double utilizacion = metricas.calcularUtilizacionCPU();
+            lblUtilizacionCPU.setText(String.format("%.2f %%", utilizacion));
+        }
+        
+        // Actualizar tiempo de espera promedio
+        if (lblTiempoEspera != null) {
+            double tiempoEspera = metricas.calcularTiempoEsperaPromedio();
+            lblTiempoEspera.setText(String.format("%.2f ms", tiempoEspera));
+        }
+        
+        // Actualizar tiempo de respuesta promedio
+        if (lblTiempoRespuesta != null) {
+            double tiempoRespuesta = metricas.calcularTiempoRespuestaPromedio();
+            lblTiempoRespuesta.setText(String.format("%.2f ms", tiempoRespuesta));
+        }
+        
+        // Actualizar tiempo de retorno promedio
+        if (lblTiempoRetorno != null) {
+            double tiempoRetorno = metricas.calcularTiempoRetornoPromedio();
+            lblTiempoRetorno.setText(String.format("%.2f ms", tiempoRetorno));
+        }
+        
+        // Actualizar procesos completados
+        if (lblProcesosCompletados != null) {
+            int completados = metricas.getProcesosCompletados();
+            lblProcesosCompletados.setText(String.valueOf(completados));
+        }
+        
+        // Actualizar ciclos totales
+        if (lblCiclosTotales != null) {
+            int ciclos = metricas.getCiclosTotales();
+            lblCiclosTotales.setText(String.valueOf(ciclos));
+        }
+        
+        // Actualizar equidad
+        if (lblEquidad != null) {
+            double equidad = metricas.calcularEquidad();
+            lblEquidad.setText(String.format("%.4f", equidad));
+        }
     }
     
     public void setSimulador(Simulador simulador) {
         this.simulador = simulador;
-        actualizar();
+        if (simulador != null) {
+            actualizar();
+        }
     }
 }

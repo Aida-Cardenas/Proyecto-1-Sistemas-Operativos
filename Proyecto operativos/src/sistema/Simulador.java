@@ -12,14 +12,16 @@ import planificacion.Planificador;
 import planificacion.RoundRobin;
 
 /**
- * Simulador - Thread principal del sistema operativo simulado
+ * Simulador, Thread principal del sistema operativo simulado
  * 
- * Hasta ahora:
- * - Control básico del thread (run, pausar, reanudar, detener)
- * - Ciclo de ejecución principal con manejo de procesos
- * - Procesamiento de excepciones I/O
+ * Características implementadas hasta ahora:
+ * Control básico del thread (run, pausar, reanudar, detener)
+ * Ciclo de ejecución principal con manejo de procesos
+ * Procesamiento de excepciones I/O
+ * Gestión de suspensión de procesos
+ * Cambio dinámico de planificador y agregación de procesos
  * 
- * Próxima implementación: Gestión de suspensión de procesos
+ * Próxima implementación: Planificador de Colas Multinivel con Retroalimentación
  */
 public class Simulador extends Thread {
    // Variables de estado de las colas
@@ -77,7 +79,7 @@ public class Simulador extends Thread {
       this.registrarEvento("=== SIMULADOR DETENIDO ===");
    }
 
-   // Ciclo de ejecución principal
+   // Ciclo de ejecución principal donde ocurre toda la magia
    private void ejecutarCiclo() {
       this.lock.lock();
 
@@ -86,7 +88,7 @@ public class Simulador extends Thread {
          this.procesarExcepciones();
          
          if (this.procesoActual == null) {
-            // Modo SO activado - buscando proceso para ejecutar
+            // Modo SO activado, buscando proceso para ejecutar
             this.modoSO = true;
             if (this.listener != null) {
                this.listener.onCambioModo(true);
@@ -114,7 +116,7 @@ public class Simulador extends Thread {
                this.metricas.registrarCicloSinCPU();
             }
          } else {
-            // Ya hay un proceso ejecutándose - modo usuario
+            // Ya hay un proceso ejecutándose, modo usuario
             this.modoSO = false;
             if (this.listener != null) {
                this.listener.onCambioModo(false);
@@ -130,7 +132,7 @@ public class Simulador extends Thread {
                this.procesoActual.iniciarExcepcion();
                this.procesoActual.getPcb().setEstado(EstadoProceso.BLOQUEADO);
                this.colaBloqueados.encolar(this.procesoActual);
-               this.registrarEvento("Proceso " + this.procesoActual.getPcb().getNombre() + " genera excepción I/O - BLOQUEADO");
+               this.registrarEvento("Proceso " + this.procesoActual.getPcb().getNombre() + " genera excepción I/O, BLOQUEADO");
                this.procesoActual = null;
                return;
             }
@@ -153,7 +155,7 @@ public class Simulador extends Thread {
                if (rr.seAcaboQuantum()) {
                   this.procesoActual.getPcb().setEstado(EstadoProceso.LISTO);
                   this.colaListos.encolar(this.procesoActual);
-                  this.registrarEvento("Proceso " + this.procesoActual.getPcb().getNombre() + " agotó quantum - vuelve a LISTO");
+                  this.registrarEvento("Proceso " + this.procesoActual.getPcb().getNombre() + " agotó quantum, vuelve a LISTO");
                   this.procesoActual = null;
                }
             } else if (this.planificador instanceof ColasMultinivelRetroalimentacion) {
@@ -180,7 +182,7 @@ public class Simulador extends Thread {
       }
    }
 
-   // Procesamiento de excepciones I/O - Revisar procesos bloqueados
+   // Procesamiento de excepciones I/O, revisar procesos bloqueados
    private void procesarExcepciones() {
       if (!this.colaBloqueados.estaVacia()) {
          Lista<Proceso> procesosADesbloquear = new Lista();
@@ -216,19 +218,105 @@ public class Simulador extends Thread {
       }
    }
 
+   // Agregar proceso nuevo al sistema
    public void agregarProceso(Proceso proceso) {
+      this.lock.lock();
+      try {
+         proceso.getPcb().setEstado(EstadoProceso.LISTO);
+         this.todosLosProcesos.agregar(proceso);
+         this.colaListos.encolar(proceso);
+         this.registrarEvento("Nuevo proceso agregado: " + proceso.getPcb().getNombre());
+         
+         if (this.listener != null) {
+            this.listener.onActualizacion();
+         }
+      } finally {
+         this.lock.unlock();
+      }
    }
 
+   // Suspender proceso, mover de cualquier cola a suspendidos
    public void suspenderProceso(Proceso proceso) {
+      this.lock.lock();
+      try {
+         EstadoProceso estadoActual = proceso.getPcb().getEstado();
+         
+         if (estadoActual == EstadoProceso.EJECUCION && this.procesoActual == proceso) {
+            this.procesoActual = null;
+            proceso.getPcb().setEstado(EstadoProceso.LISTO_SUSPENDIDO);
+            this.colaListosSuspendidos.encolar(proceso);
+            this.registrarEvento("Proceso " + proceso.getPcb().getNombre() + " suspendido desde EJECUCION");
+         } else if (estadoActual == EstadoProceso.LISTO) {
+            this.removerDeCola(proceso, this.colaListos);
+            proceso.getPcb().setEstado(EstadoProceso.LISTO_SUSPENDIDO);
+            this.colaListosSuspendidos.encolar(proceso);
+            this.registrarEvento("Proceso " + proceso.getPcb().getNombre() + " suspendido desde LISTO");
+         } else if (estadoActual == EstadoProceso.BLOQUEADO) {
+            this.removerDeCola(proceso, this.colaBloqueados);
+            proceso.getPcb().setEstado(EstadoProceso.BLOQUEADO_SUSPENDIDO);
+            this.colaBloqueadosSuspendidos.encolar(proceso);
+            this.registrarEvento("Proceso " + proceso.getPcb().getNombre() + " suspendido desde BLOQUEADO");
+         }
+      } finally {
+         this.lock.unlock();
+      }
    }
 
+   // Reanudar proceso, mover de suspendidos a su cola correspondiente
    public void reanudarProceso(Proceso proceso) {
+      this.lock.lock();
+      try {
+         EstadoProceso estadoActual = proceso.getPcb().getEstado();
+         
+         if (estadoActual == EstadoProceso.LISTO_SUSPENDIDO) {
+            this.removerDeCola(proceso, this.colaListosSuspendidos);
+            proceso.getPcb().setEstado(EstadoProceso.LISTO);
+            this.colaListos.encolar(proceso);
+            this.registrarEvento("Proceso " + proceso.getPcb().getNombre() + " reanudado a LISTO");
+         } else if (estadoActual == EstadoProceso.BLOQUEADO_SUSPENDIDO) {
+            this.removerDeCola(proceso, this.colaBloqueadosSuspendidos);
+            proceso.getPcb().setEstado(EstadoProceso.BLOQUEADO);
+            this.colaBloqueados.encolar(proceso);
+            this.registrarEvento("Proceso " + proceso.getPcb().getNombre() + " reanudado a BLOQUEADO");
+         }
+      } finally {
+         this.lock.unlock();
+      }
    }
 
+   // Método auxiliar para remover un proceso específico de una cola
+   private void removerDeCola(Proceso proceso, Cola<Proceso> cola) {
+      Lista<Proceso> temp = cola.obtenerTodos();
+      cola.limpiar();
+      for (int i = 0; i < temp.tamaño(); i++) {
+         if (temp.obtener(i) != proceso) {
+            cola.encolar(temp.obtener(i));
+         }
+      }
+   }
+
+   // Cambiar planificador dinámicamente
    public void cambiarPlanificador(Planificador nuevoPlanificador) {
+      this.lock.lock();
+      try {
+         String nombreAnterior = this.planificador.getNombre();
+         this.planificador = nuevoPlanificador;
+         this.registrarEvento("Planificador cambiado de " + nombreAnterior + " a " + nuevoPlanificador.getNombre());
+         
+         if (this.listener != null) {
+            this.listener.onCambioPlanificador(nuevoPlanificador.getNombre());
+         }
+      } finally {
+         this.lock.unlock();
+      }
    }
 
+   // Registrar eventos en el log
    private void registrarEvento(String evento) {
+      this.log.append("[Ciclo ").append(this.cicloGlobal).append("] ").append(evento).append("\n");
+      if (this.listener != null) {
+         this.listener.onNuevoEvento(evento);
+      }
    }
 
    // Getters
@@ -293,7 +381,7 @@ public class Simulador extends Thread {
       this.listener = listener;
    }
 
-   // Métodos de control del thread - Para manejar play,pause,stop
+   // Métodos de control del thread para manejar play, pause, stop
    public void pausar() {
       this.pausado = true;
    }
@@ -310,6 +398,38 @@ public class Simulador extends Thread {
       return this.ejecutando && !this.pausado;
    }
 
+   // Reiniciar simulación completa
    public void reiniciarSimulacion() {
+      this.lock.lock();
+      try {
+         this.detener();
+         
+         // Limpiar todas las colas
+         this.colaListos.limpiar();
+         this.colaBloqueados.limpiar();
+         this.colaListosSuspendidos.limpiar();
+         this.colaBloqueadosSuspendidos.limpiar();
+         this.procesosTerminados.limpiar();
+         this.todosLosProcesos.limpiar();
+         
+         // Reiniciar variables de control
+         this.procesoActual = null;
+         this.cicloGlobal = 0;
+         this.ejecutando = false;
+         this.pausado = false;
+         this.modoSO = false;
+         
+         // Reiniciar métricas y log
+         this.metricas.reiniciar();
+         this.log.setLength(0);
+         
+         this.registrarEvento("=== SIMULACION REINICIADA ===");
+         
+         if (this.listener != null) {
+            this.listener.onActualizacion();
+         }
+      } finally {
+         this.lock.unlock();
+      }
    }
 }

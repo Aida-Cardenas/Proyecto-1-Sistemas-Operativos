@@ -5,6 +5,7 @@ import estructuras.Lista;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.locks.ReentrantLock;
 import modelo.EstadoProceso;
+import modelo.PCB;
 import modelo.Proceso;
 import planificacion.ColasMultinivelRetroalimentacion;
 import planificacion.FCFS;
@@ -12,16 +13,15 @@ import planificacion.Planificador;
 import planificacion.RoundRobin;
 
 /**
- * Simulador, Thread principal del sistema operativo simulado
+ * Simulador - Thread principal del sistema operativo simulado
  * 
- * Características implementadas hasta ahora:
- * Control básico del thread (run, pausar, reanudar, detener)
- * Ciclo de ejecución principal con manejo de procesos
- * Procesamiento de excepciones I/O
- * Gestión de suspensión de procesos
- * Cambio dinámico de planificador y agregación de procesos
+ * Este es el corazón del simulador donde todo funciona junto.
+ * Maneja todas las colas de procesos, ejecuta los ciclos de simulación
+ * y coordina entre el planificador y la interfaz gráfica.
  * 
- * Próxima implementación: Planificador de Colas Multinivel con Retroalimentación
+ * Básicamente simula lo que hace un sistema operativo real:
+ * seleccionar procesos, ejecutarlos, manejar interrupciones
+ * y cambiar entre modo SO y modo usuario.
  */
 public class Simulador extends Thread {
    // Variables de estado de las colas
@@ -54,7 +54,7 @@ public class Simulador extends Thread {
    public Simulador() {
    }
 
-   // Método principal del thread 
+   // Método principal del thread donde corre toda la simulación
    public void run() {
       this.ejecutando = true;
       this.registrarEvento("=== SIMULADOR INICIADO ===");
@@ -176,7 +176,6 @@ public class Simulador extends Thread {
          if (this.listener != null) {
             this.listener.onActualizacion();
          }
-
       } finally {
          this.lock.unlock();
       }
@@ -221,15 +220,13 @@ public class Simulador extends Thread {
    // Agregar proceso nuevo al sistema
    public void agregarProceso(Proceso proceso) {
       this.lock.lock();
+
       try {
          proceso.getPcb().setEstado(EstadoProceso.LISTO);
          this.todosLosProcesos.agregar(proceso);
-         this.colaListos.encolar(proceso);
-         this.registrarEvento("Nuevo proceso agregado: " + proceso.getPcb().getNombre());
-         
-         if (this.listener != null) {
-            this.listener.onActualizacion();
-         }
+         this.planificador.agregarProceso(proceso, this.colaListos);
+         String var10001 = proceso.getPcb().getNombre();
+         this.registrarEvento("Proceso creado: " + var10001 + " con " + proceso.getNumeroInstrucciones() + " instrucciones");
       } finally {
          this.lock.unlock();
       }
@@ -238,21 +235,33 @@ public class Simulador extends Thread {
    // Suspender proceso, mover de cualquier cola a suspendidos
    public void suspenderProceso(Proceso proceso) {
       this.lock.lock();
+
       try {
-         EstadoProceso estadoActual = proceso.getPcb().getEstado();
-         
-         if (estadoActual == EstadoProceso.EJECUCION && this.procesoActual == proceso) {
-            this.procesoActual = null;
-            proceso.getPcb().setEstado(EstadoProceso.LISTO_SUSPENDIDO);
-            this.colaListosSuspendidos.encolar(proceso);
-            this.registrarEvento("Proceso " + proceso.getPcb().getNombre() + " suspendido desde EJECUCION");
-         } else if (estadoActual == EstadoProceso.LISTO) {
-            this.removerDeCola(proceso, this.colaListos);
+         Lista temp;
+         int i;
+         if (proceso.getPcb().getEstado() == EstadoProceso.LISTO) {
+            temp = this.colaListos.obtenerTodos();
+            this.colaListos.limpiar();
+
+            for(i = 0; i < temp.tamaño(); ++i) {
+               if (temp.obtener(i) != proceso) {
+                  this.colaListos.encolar((Proceso)temp.obtener(i));
+               }
+            }
+
             proceso.getPcb().setEstado(EstadoProceso.LISTO_SUSPENDIDO);
             this.colaListosSuspendidos.encolar(proceso);
             this.registrarEvento("Proceso " + proceso.getPcb().getNombre() + " suspendido desde LISTO");
-         } else if (estadoActual == EstadoProceso.BLOQUEADO) {
-            this.removerDeCola(proceso, this.colaBloqueados);
+         } else if (proceso.getPcb().getEstado() == EstadoProceso.BLOQUEADO) {
+            temp = this.colaBloqueados.obtenerTodos();
+            this.colaBloqueados.limpiar();
+
+            for(i = 0; i < temp.tamaño(); ++i) {
+               if (temp.obtener(i) != proceso) {
+                  this.colaBloqueados.encolar((Proceso)temp.obtener(i));
+               }
+            }
+
             proceso.getPcb().setEstado(EstadoProceso.BLOQUEADO_SUSPENDIDO);
             this.colaBloqueadosSuspendidos.encolar(proceso);
             this.registrarEvento("Proceso " + proceso.getPcb().getNombre() + " suspendido desde BLOQUEADO");
@@ -265,16 +274,33 @@ public class Simulador extends Thread {
    // Reanudar proceso, mover de suspendidos a su cola correspondiente
    public void reanudarProceso(Proceso proceso) {
       this.lock.lock();
+
       try {
-         EstadoProceso estadoActual = proceso.getPcb().getEstado();
-         
-         if (estadoActual == EstadoProceso.LISTO_SUSPENDIDO) {
-            this.removerDeCola(proceso, this.colaListosSuspendidos);
+         Lista temp;
+         int i;
+         if (proceso.getPcb().getEstado() == EstadoProceso.LISTO_SUSPENDIDO) {
+            temp = this.colaListosSuspendidos.obtenerTodos();
+            this.colaListosSuspendidos.limpiar();
+
+            for(i = 0; i < temp.tamaño(); ++i) {
+               if (temp.obtener(i) != proceso) {
+                  this.colaListosSuspendidos.encolar((Proceso)temp.obtener(i));
+               }
+            }
+
             proceso.getPcb().setEstado(EstadoProceso.LISTO);
             this.colaListos.encolar(proceso);
             this.registrarEvento("Proceso " + proceso.getPcb().getNombre() + " reanudado a LISTO");
-         } else if (estadoActual == EstadoProceso.BLOQUEADO_SUSPENDIDO) {
-            this.removerDeCola(proceso, this.colaBloqueadosSuspendidos);
+         } else if (proceso.getPcb().getEstado() == EstadoProceso.BLOQUEADO_SUSPENDIDO) {
+            temp = this.colaBloqueadosSuspendidos.obtenerTodos();
+            this.colaBloqueadosSuspendidos.limpiar();
+
+            for(i = 0; i < temp.tamaño(); ++i) {
+               if (temp.obtener(i) != proceso) {
+                  this.colaBloqueadosSuspendidos.encolar((Proceso)temp.obtener(i));
+               }
+            }
+
             proceso.getPcb().setEstado(EstadoProceso.BLOQUEADO);
             this.colaBloqueados.encolar(proceso);
             this.registrarEvento("Proceso " + proceso.getPcb().getNombre() + " reanudado a BLOQUEADO");
@@ -284,27 +310,27 @@ public class Simulador extends Thread {
       }
    }
 
-   // Método auxiliar para remover un proceso específico de una cola
-   private void removerDeCola(Proceso proceso, Cola<Proceso> cola) {
-      Lista<Proceso> temp = cola.obtenerTodos();
-      cola.limpiar();
-      for (int i = 0; i < temp.tamaño(); i++) {
-         if (temp.obtener(i) != proceso) {
-            cola.encolar(temp.obtener(i));
-         }
-      }
-   }
-
    // Cambiar planificador dinámicamente
    public void cambiarPlanificador(Planificador nuevoPlanificador) {
       this.lock.lock();
+
       try {
-         String nombreAnterior = this.planificador.getNombre();
+         Lista<Proceso> procesosActuales = this.colaListos.obtenerTodos();
          this.planificador = nuevoPlanificador;
-         this.registrarEvento("Planificador cambiado de " + nombreAnterior + " a " + nuevoPlanificador.getNombre());
-         
-         if (this.listener != null) {
-            this.listener.onCambioPlanificador(nuevoPlanificador.getNombre());
+         this.colaListos.limpiar();
+         int i = 0;
+
+         while(true) {
+            if (i >= procesosActuales.tamaño()) {
+               this.registrarEvento("Planificador cambiado a: " + this.planificador.getNombre());
+               if (this.listener != null) {
+                  this.listener.onCambioPlanificador(this.planificador.getNombre());
+               }
+               break;
+            }
+
+            this.planificador.agregarProceso((Proceso)procesosActuales.obtener(i), this.colaListos);
+            ++i;
          }
       } finally {
          this.lock.unlock();
@@ -313,13 +339,14 @@ public class Simulador extends Thread {
 
    // Registrar eventos en el log
    private void registrarEvento(String evento) {
-      this.log.append("[Ciclo ").append(this.cicloGlobal).append("] ").append(evento).append("\n");
+      String eventoCompleto = "[Ciclo " + this.cicloGlobal + "] " + evento;
+      this.log.append(eventoCompleto).append("\n");
       if (this.listener != null) {
-         this.listener.onNuevoEvento(evento);
+         this.listener.onNuevoEvento(eventoCompleto);
       }
    }
 
-   // Getters
+   // Getters para acceso a las colas y datos
    public Cola<Proceso> getColaListos() {
       return this.colaListos;
    }
@@ -372,7 +399,7 @@ public class Simulador extends Thread {
       return this.duracionCiclo;
    }
 
-   // Setters
+   // Setters para configuración
    public void setDuracionCiclo(int milisegundos) {
       this.duracionCiclo = milisegundos;
    }
@@ -401,33 +428,29 @@ public class Simulador extends Thread {
    // Reiniciar simulación completa
    public void reiniciarSimulacion() {
       this.lock.lock();
+
       try {
-         this.detener();
-         
          // Limpiar todas las colas
          this.colaListos.limpiar();
          this.colaBloqueados.limpiar();
          this.colaListosSuspendidos.limpiar();
          this.colaBloqueadosSuspendidos.limpiar();
-         this.procesosTerminados.limpiar();
-         this.todosLosProcesos.limpiar();
+         this.procesosTerminados = new Lista();
+         this.todosLosProcesos = new Lista();
          
          // Reiniciar variables de control
          this.procesoActual = null;
          this.cicloGlobal = 0;
-         this.ejecutando = false;
-         this.pausado = false;
-         this.modoSO = false;
          
          // Reiniciar métricas y log
          this.metricas.reiniciar();
-         this.log.setLength(0);
+         this.log = new StringBuilder();
          
-         this.registrarEvento("=== SIMULACION REINICIADA ===");
+         // Reiniciar contador de PCB y planificador
+         PCB.reiniciarContador();
+         this.planificador.reiniciar();
          
-         if (this.listener != null) {
-            this.listener.onActualizacion();
-         }
+         this.registrarEvento("=== SIMULACIÓN REINICIADA ===");
       } finally {
          this.lock.unlock();
       }

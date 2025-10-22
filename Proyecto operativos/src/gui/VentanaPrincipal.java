@@ -22,6 +22,7 @@ public class VentanaPrincipal extends JFrame implements SimuladorListener {
     private JButton btnPausar;
     private JButton btnDetener;
     private JButton btnAgregarProceso;
+    private JButton btnAgregar20Aleatorios;  
     private JButton btnGuardarConfig;
     private JButton btnCargarConfig;
     private JComboBox<String> comboPlanificador;
@@ -90,6 +91,12 @@ public class VentanaPrincipal extends JFrame implements SimuladorListener {
         btnAgregarProceso = new JButton("Agregar Proceso");
         btnAgregarProceso.addActionListener(e -> mostrarDialogoAgregarProceso());
         panelSuperior.add(btnAgregarProceso, gbc);
+        
+        gbc.gridx = 4;
+        btnAgregar20Aleatorios = new JButton("20 Aleatorios");
+        btnAgregar20Aleatorios.setToolTipText("Agregar 20 procesos con configuración aleatoria");
+        btnAgregar20Aleatorios.addActionListener(e -> agregar20ProcesosAleatorios());
+        panelSuperior.add(btnAgregar20Aleatorios, gbc);
         
         // fila 2 config
         gbc.gridx = 0; gbc.gridy = 1;
@@ -242,8 +249,26 @@ public class VentanaPrincipal extends JFrame implements SimuladorListener {
             case "Round Robin":
                 String quantumStr = JOptionPane.showInputDialog(this, 
                     "Ingrese el quantum:", "3");
-                int quantum = Integer.parseInt(quantumStr != null ? quantumStr : "3");
-                nuevoPlanificador = new RoundRobin(quantum);
+                if (quantumStr == null || quantumStr.trim().isEmpty()) {
+                    return;
+                }
+                try {
+                    int quantum = Integer.parseInt(quantumStr);
+                    if (quantum < 1) {
+                        JOptionPane.showMessageDialog(this, 
+                            "El quantum debe ser mayor a 0", 
+                            "Error", 
+                            JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+                    nuevoPlanificador = new RoundRobin(quantum);
+                } catch (NumberFormatException ex) {
+                    JOptionPane.showMessageDialog(this, 
+                        "Debe ingresar un número válido", 
+                        "Error", 
+                        JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
                 break;
             case "Prioridad Non-Preemptive":
                 nuevoPlanificador = new Prioridad(false);
@@ -272,6 +297,81 @@ public class VentanaPrincipal extends JFrame implements SimuladorListener {
             simulador.agregarProceso(proceso);
             actualizarTodo();
         }
+    }
+    
+    // procesos aleatorios jeje
+    private void agregar20ProcesosAleatorios() {
+        java.util.Random random = new java.util.Random();
+        StringBuilder resumen = new StringBuilder();
+        resumen.append("\n");
+        resumen.append("   GENERACIÓN DE 20 PROCESOS ALEATORIOS\n");
+        resumen.append("\n");
+        
+        int cpuBoundCount = 0;
+        int ioBoundCount = 0;
+        
+        for (int i = 1; i <= 20; i++) {
+            String nombre = "Proc_" + System.currentTimeMillis() % 10000 + "_" + i;
+            
+            // 5050 CPU-Bound o I/O-Bound
+            boolean esCPUBound = random.nextBoolean();
+            
+            // cant intrucciones (entre 10 y 50 pq si no siempre me agarra 20 idk)
+            int numInstrucciones = 10 + random.nextInt(41);
+            
+            // prioridad
+            int prioridad = random.nextInt(11);
+            
+            int ciclosExcepcion = 0;
+            int ciclosCompletarExcepcion = 0;
+            
+            if (!esCPUBound) {
+                ciclosExcepcion = 3 + random.nextInt(6);
+                ciclosCompletarExcepcion = 2 + random.nextInt(4);
+            }
+            
+            Proceso proceso = new Proceso(nombre, numInstrucciones, esCPUBound, 
+                                         ciclosExcepcion, ciclosCompletarExcepcion);
+            proceso.getPcb().setPrioridad(prioridad);
+            
+            simulador.agregarProceso(proceso);
+            
+            String tipo = esCPUBound ? "CPU-Bound" : "I/O-Bound ";
+            resumen.append(String.format("%2d. %-20s | %-10s | Instr: %2d | Prio: %2d", 
+                i, nombre, tipo, numInstrucciones, prioridad));
+            
+            if (!esCPUBound) {
+                resumen.append(String.format(" | I/O: cada %d ciclos, duración %d", 
+                    ciclosExcepcion, ciclosCompletarExcepcion));
+            }
+            resumen.append("\n");
+            
+            if (esCPUBound) {
+                cpuBoundCount++;
+            } else {
+                ioBoundCount++;
+            }
+        }
+        
+        // a ver si no flopea
+        resumen.append("\n");
+        resumen.append("                    Procesos Creados\n");
+        resumen.append("\n");
+        resumen.append(String.format("Total de procesos: 20\n"));
+        resumen.append(String.format("CPU-Bound: %d (%.0f%%)\n", cpuBoundCount, (cpuBoundCount/20.0)*100));
+        resumen.append(String.format("I/O-Bound: %d (%.0f%%)\n", ioBoundCount, (ioBoundCount/20.0)*100));
+        resumen.append("═══════════════════════════════════════════════════\n");
+        
+        actualizarTodo();
+        
+        JTextArea textArea = new JTextArea(resumen.toString());
+        textArea.setEditable(false);
+        textArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        textArea.setCaretPosition(0);
+        
+        JScrollPane scrollPane = new JScrollPane(textArea);
+        scrollPane.setPreferredSize(new Dimension(700, 500));
+       
     }
     
     private void guardarConfiguracion() {

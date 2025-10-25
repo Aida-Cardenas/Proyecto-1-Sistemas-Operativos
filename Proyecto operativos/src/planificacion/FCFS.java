@@ -1,9 +1,15 @@
 package planificacion;
 
-import modelo.Proceso;
 import estructuras.Cola;
+import modelo.Proceso;
 
 public class FCFS implements Planificador {
+    /**
+     * FCFS - First Come, First Served
+     * 
+     * El más simple: el que llega primero es el que se atiende primero.
+     * No hay prioridades, no hay preempción, no hay quantum.
+     */
     
     @Override
     public Proceso seleccionarSiguienteProceso(Cola<Proceso> colaListos) {
@@ -25,6 +31,7 @@ public class FCFS implements Planificador {
     
     @Override
     public void setQuantum(int quantum) {
+        // FCFS no usa quantum
     }
     
     @Override
@@ -34,5 +41,6 @@ public class FCFS implements Planificador {
     
     @Override
     public void reiniciar() {
+        // Sin estado interno que reiniciar
     }
 }

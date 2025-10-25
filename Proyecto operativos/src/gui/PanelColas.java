@@ -1,18 +1,30 @@
 package gui;
 
-import estructuras.Cola;
-import estructuras.Lista;
 import java.awt.BorderLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
+
 import javax.swing.BorderFactory;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
+
+import estructuras.Cola;
+import estructuras.Lista;
 import modelo.Proceso;
 import sistema.Simulador;
 
 public class PanelColas extends JPanel {
+   /**
+    * PanelColas - Vista de todas las colas del sistema
+    * 
+    * Muestra, en tiempo real, el contenido de:
+    * - Listos
+    * - Bloqueados (con progreso de I/O)
+    * - Listos suspendidos
+    * - Bloqueados suspendidos
+    * - Terminados
+    */
    private Simulador simulador;
    private JTextArea txtListos;
    private JTextArea txtBloqueados;

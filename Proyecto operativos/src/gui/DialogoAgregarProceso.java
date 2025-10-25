@@ -6,6 +6,7 @@ import java.awt.Frame;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
@@ -17,9 +18,17 @@ import javax.swing.JRadioButton;
 import javax.swing.JSpinner;
 import javax.swing.JTextField;
 import javax.swing.SpinnerNumberModel;
+
 import modelo.Proceso;
 
 public class DialogoAgregarProceso extends JDialog {
+   /**
+    * DialogoAgregarProceso - Wizard para crear procesos
+    * 
+    * Permite definir nombre, cantidad de instrucciones, tipo (CPU/I-O bound),
+    * patrón y duración de I/O y prioridad. Devuelve un Proceso listo para
+    * agregar al simulador.
+    */
    private JTextField txtNombre;
    private JSpinner spinnerInstrucciones;
    private JRadioButton rbCPUBound;

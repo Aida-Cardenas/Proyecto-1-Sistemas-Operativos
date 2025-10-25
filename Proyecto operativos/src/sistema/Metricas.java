@@ -13,7 +13,7 @@ import modelo.Proceso;
  * - Qué tan ocupada estuvo la CPU (Medidor de chamba)
  * - Cálculos promedio de rendimiento (para sacar las conclusiones finales)
  * 
- * Es como el "estadísticas de fin de año" de Spotify, pero para procesos :v
+ * Es como el "estadísticas de fin de año" de Spotify, pero para procesos
  * Todo lo registra para después poder analizar qué tan bien (o mal) 
  * funcionó nuestro planificador.
  */

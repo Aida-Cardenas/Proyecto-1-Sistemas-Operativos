@@ -1,11 +1,23 @@
 package planificacion;
 
-import estructuras.Cola;
 import java.util.HashMap;
 import java.util.Map;
+
+import estructuras.Cola;
 import modelo.Proceso;
 
 public class ColasMultinivelRetroalimentacion implements Planificador {
+    /**
+     * MLFQ - Colas Multinivel con Retroalimentación
+     * 
+     * Tres niveles con distintas políticas:
+     * - Cola 1: Quantum pequeño (rápida respuesta)
+     * - Cola 2: Quantum más grande (tareas medianas)
+     * - Cola 3: FCFS (tareas largas sin preempción)
+     * 
+     * Si un proceso no alcanza a terminar en su quantum, va "bajando de liga".
+     * Los procesos nuevos entran en la cola 1 para ser responsivos.
+     */
     private Cola<Proceso> cola1; // quantum = 2
     private Cola<Proceso> cola2; // quantum = 4
     private Cola<Proceso> cola3; // FCFS
@@ -72,6 +84,7 @@ public class ColasMultinivelRetroalimentacion implements Planificador {
         }
     }
     
+    // Baja al proceso un nivel para hacerlo menos prioritario
     public void degradarProceso(Proceso proceso) {
         int idProceso = proceso.getPcb().getId();
         int nivelActual = procesoACola.getOrDefault(idProceso, 1);
@@ -81,10 +94,12 @@ public class ColasMultinivelRetroalimentacion implements Planificador {
         }
     }
     
+    // ¿En qué nivel está actualmente este proceso?
     public int getNivelProceso(Proceso proceso) {
         return procesoACola.getOrDefault(proceso.getPcb().getId(), 1);
     }
     
+    // Devuelve el quantum asociado a cada nivel (cola3 es "infinito" => FCFS)
     public int getQuantumParaNivel(int nivel) {
         if (nivel == 1) return quantum1;
         if (nivel == 2) return quantum2;

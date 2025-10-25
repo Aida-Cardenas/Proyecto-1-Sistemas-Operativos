@@ -5,6 +5,12 @@ import estructuras.Lista;
 import modelo.Proceso;
 
 public class ColasMultinivel implements Planificador {
+    /**
+     * Colas Multinivel - Varias colas por prioridad
+     * 
+     * Separa los procesos en 3 colas según prioridad y siempre atiende
+     * primero la de mayor prioridad. Dentro de cada cola se usa FCFS.
+     */
     private Cola<Proceso> colaPrioridad1; 
     private Cola<Proceso> colaPrioridad2; 
     private Cola<Proceso> colaPrioridad3; 
@@ -19,7 +25,7 @@ public class ColasMultinivel implements Planificador {
     
 
     public Proceso seleccionarSiguienteProceso(Cola<Proceso> colaListos) {
-        //organizar todos los procesos en las colas por nivel
+        // Volcar la cola general en las colas por nivel de prioridad
         while (!colaListos.estaVacia()) {
             Proceso p = colaListos.desencolar();
             int prioridad = p.getPcb().getPrioridad();
@@ -33,7 +39,7 @@ public class ColasMultinivel implements Planificador {
             }
         }
         
-        //cola de mayor prioridad disponible
+        // Tomar de la cola de mayor prioridad disponible
         if (!colaPrioridad1.estaVacia()) {
             return colaPrioridad1.desencolar();
         } else if (!colaPrioridad2.estaVacia()) {

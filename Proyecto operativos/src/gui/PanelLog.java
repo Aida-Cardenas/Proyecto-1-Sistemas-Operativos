@@ -1,9 +1,23 @@
 package gui;
 
-import javax.swing.*;
-import java.awt.*;
+import java.awt.BorderLayout;
+import java.awt.Font;
+
+import javax.swing.BorderFactory;
+import javax.swing.JButton;
+import javax.swing.JPanel;
+import javax.swing.JScrollBar;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+import javax.swing.SwingUtilities;
 
 public class PanelLog extends JPanel {
+    /**
+     * PanelLog - Bitácora de eventos del simulador
+     * 
+     * Un textarea simple que acumula los eventos emitidos por el Simulador
+     * y siempre auto-scroll al final para ver lo último que pasó.
+     */
     private JTextArea txtLog;
     private JScrollPane scrollPane;
     

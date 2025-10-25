@@ -1,9 +1,15 @@
 package planificacion;
 
-import modelo.Proceso;
 import estructuras.Cola;
+import modelo.Proceso;
 
 public class RoundRobin implements Planificador {
+    /**
+     * Round Robin - Justicia por turnos
+     * 
+     * Cada proceso recibe un "slice" de CPU (quantum). Si no termina en su turno,
+     * se regresa al final de la cola para dar chance al siguiente.
+     */
     private int quantum;
     private int quantumRestante;
     
@@ -26,14 +32,17 @@ public class RoundRobin implements Planificador {
         colaListos.encolar(proceso);
     }
     
+    // ¿Se agotó el turno del proceso actual?
     public boolean seAcaboQuantum() {
         return quantumRestante <= 0;
     }
     
+    // Consumir un ciclo del quantum (lo invoca el simulador cada ciclo)
     public void consumirQuantum() {
         quantumRestante--;
     }
     
+    // Reiniciar el quantum cuando entra un nuevo proceso a CPU
     public void reiniciarQuantum() {
         quantumRestante = quantum;
     }

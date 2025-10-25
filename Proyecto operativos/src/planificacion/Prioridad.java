@@ -1,11 +1,18 @@
 
 package planificacion;
 
-import modelo.Proceso;
 import estructuras.Cola;
 import estructuras.Lista;
+import modelo.Proceso;
 
 public class Prioridad implements Planificador {
+    /**
+     * Prioridad - El más importante va primero
+     * 
+     * Selecciona el proceso con menor número de prioridad (0 = más alta).
+     * Puede configurarse como preemptive o no-preemptive, aunque aquí la
+     * selección ocurre al quedar la CPU libre.
+     */
     private boolean esPreemptive;
     
     public Prioridad(boolean esPreemptive) {
@@ -24,7 +31,7 @@ public class Prioridad implements Planificador {
             return null;
         }
         
-        //proceso con mayor prioridad (menor número = mayor prioridad)
+        // Proceso con mayor prioridad (menor número = mayor prioridad)
         Proceso mayorPrioridad = procesos.obtener(0);
         int menorNumeroPrioridad = mayorPrioridad.getPcb().getPrioridad();
         

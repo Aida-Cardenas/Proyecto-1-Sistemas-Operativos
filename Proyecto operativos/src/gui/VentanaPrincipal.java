@@ -1,15 +1,50 @@
 //ESTA ES LA CLASE MAIN NO CREEN OTRA PLS :)
 package gui;
 
-import javax.swing.*;
-import java.awt.*;
-import sistema.*;
-import modelo.*;
-import planificacion.*;
-import persistencia.*;
-import estructuras.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.GridLayout;
+import java.awt.Insets;
+
+import javax.swing.BorderFactory;
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JSpinner;
+import javax.swing.JTextArea;
+import javax.swing.SpinnerNumberModel;
+import javax.swing.SwingUtilities;
+
+import estructuras.Lista;
+import modelo.Proceso;
+import persistencia.ConfiguracionPersistencia;
+import planificacion.FCFS;
+import planificacion.Planificador;
+import planificacion.Prioridad;
+import planificacion.RoundRobin;
+import planificacion.SJF;
+import sistema.Simulador;
+import sistema.SimuladorListener;
 
 public class VentanaPrincipal extends JFrame implements SimuladorListener {
+    /**
+     * VentanaPrincipal - La cara del simulador
+     * 
+     * Aquí vive toda la interfaz gráfica: botones de control, paneles de
+     * colas, PCBs, log y métricas. Se conecta al Simulador mediante la
+     * interfaz SimuladorListener para recibir actualizaciones en tiempo real.
+     * 
+     * Meta: que sea claro, útil y lo más visual posible para entender cómo
+     * se comportan los algoritmos de planificación.
+     */
     private Simulador simulador;
     
     // componentes
@@ -51,11 +86,11 @@ public class VentanaPrincipal extends JFrame implements SimuladorListener {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout(10, 10));
         
-        crearPanelSuperior();
+        crearPanelSuperior(); // Controles y estado general
         
-        crearPanelCentral();
+        crearPanelCentral(); // Colas, PCB y Log
         
-        crearPanelInferior();
+        crearPanelInferior(); // Métricas
         
         add(panelSuperior, BorderLayout.NORTH);
         add(panelCentral, BorderLayout.CENTER);
@@ -98,7 +133,7 @@ public class VentanaPrincipal extends JFrame implements SimuladorListener {
         btnAgregar20Aleatorios.addActionListener(e -> agregar20ProcesosAleatorios());
         panelSuperior.add(btnAgregar20Aleatorios, gbc);
         
-        // fila 2 config
+    // fila 2: configuración del planificador y duración de ciclo
         gbc.gridx = 0; gbc.gridy = 1;
         panelSuperior.add(new JLabel("Planificador:"), gbc);
         
@@ -123,7 +158,7 @@ public class VentanaPrincipal extends JFrame implements SimuladorListener {
         spinnerDuracionCiclo.addChangeListener(e -> cambiarDuracionCiclo());
         panelSuperior.add(spinnerDuracionCiclo, gbc);
         
-        // fila 3 info estado
+    // fila 3: info de estado del simulador
         gbc.gridx = 0; gbc.gridy = 2;
         panelSuperior.add(new JLabel("Ciclo Global:"), gbc);
         
@@ -141,7 +176,7 @@ public class VentanaPrincipal extends JFrame implements SimuladorListener {
         lblModo.setForeground(Color.BLUE);
         panelSuperior.add(lblModo, gbc);
         
-        // fila 4 proceso
+    // fila 4: indicador del proceso actualmente en CPU
         gbc.gridx = 0; gbc.gridy = 3;
         panelSuperior.add(new JLabel("Proceso Actual:"), gbc);
         
@@ -151,7 +186,7 @@ public class VentanaPrincipal extends JFrame implements SimuladorListener {
         lblProcesoActual.setForeground(Color.RED);
         panelSuperior.add(lblProcesoActual, gbc);
         
-        // fila 5 guardar o cargar config
+    // fila 5: persistencia de config y procesos
         gbc.gridx = 0; gbc.gridy = 4; gbc.gridwidth = 1;
         btnGuardarConfig = new JButton("Guardar Configuración");
         btnGuardarConfig.addActionListener(e -> guardarConfiguracion());
@@ -167,15 +202,15 @@ public class VentanaPrincipal extends JFrame implements SimuladorListener {
         panelCentral = new JPanel(new GridLayout(1, 3, 10, 10));
         panelCentral.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         
-        // Panel de colas
+        // Panel de colas: visualiza LISTO/BLOQUEADO/SUSPENDIDOS/TERMINADOS
         panelColas = new PanelColas(simulador);
         panelCentral.add(panelColas);
         
-        // Panel de PCB
+        // Panel de PCB: tabla con los registros y estados por proceso
         panelPCB = new PanelPCB(simulador);
         panelCentral.add(panelPCB);
         
-        // Panel de Log
+        // Panel de Log: cronología de eventos del simulador
         panelLog = new PanelLog();
         panelCentral.add(panelLog);
     }
@@ -190,6 +225,7 @@ public class VentanaPrincipal extends JFrame implements SimuladorListener {
     }
     
     private void iniciarSimulacion() {
+        // Si es la primera vez, arranca el hilo; si no, simplemente reanuda
         if (!simulador.isAlive()) {
             simulador.start();
         } else {
@@ -233,6 +269,7 @@ public class VentanaPrincipal extends JFrame implements SimuladorListener {
     }
     
     private void cambiarPlanificador() {
+        // Cambia el algoritmo en caliente; en Round Robin pide quantum
         String seleccion = (String) comboPlanificador.getSelectedItem();
         Planificador nuevoPlanificador = null;
         
@@ -289,6 +326,7 @@ public class VentanaPrincipal extends JFrame implements SimuladorListener {
     }
     
     private void mostrarDialogoAgregarProceso() {
+        // Ventana modal para crear un proceso con parámetros
         DialogoAgregarProceso dialogo = new DialogoAgregarProceso(this);
         dialogo.setVisible(true);
         
@@ -299,7 +337,7 @@ public class VentanaPrincipal extends JFrame implements SimuladorListener {
         }
     }
     
-    // procesos aleatorios jeje
+    // Genera 20 procesos con parámetros al azar (balanceado CPU/I-O)
     private void agregar20ProcesosAleatorios() {
         java.util.Random random = new java.util.Random();
         StringBuilder resumen = new StringBuilder();
@@ -313,10 +351,10 @@ public class VentanaPrincipal extends JFrame implements SimuladorListener {
         for (int i = 1; i <= 20; i++) {
             String nombre = "Proc_" + System.currentTimeMillis() % 10000 + "_" + i;
             
-            // 5050 CPU-Bound o I/O-Bound
+            // 50/50 CPU-Bound o I/O-Bound
             boolean esCPUBound = random.nextBoolean();
             
-            // cant intrucciones (entre 10 y 50 pq si no siempre me agarra 20 idk)
+            // Cantidad de instrucciones (entre 10 y 50)
             int numInstrucciones = 10 + random.nextInt(41);
             
             // prioridad
@@ -353,7 +391,7 @@ public class VentanaPrincipal extends JFrame implements SimuladorListener {
             }
         }
         
-        // a ver si no flopea
+    // Muestra un pequeño resumen en un textarea con monoespaciado
         resumen.append("\n");
         resumen.append("                    Procesos Creados\n");
         resumen.append("\n");
@@ -430,14 +468,15 @@ public class VentanaPrincipal extends JFrame implements SimuladorListener {
             spinnerDuracionCiclo.setValue(duracion);
             simulador.setDuracionCiclo(duracion);
         } catch (Exception e) {
+            // Ignorar silenciosamente si no existe aún
         }
     }
     
     private void actualizarTodo() {
-        // actualiza ciclo
+        // Actualiza: ciclo, proceso actual y paneles
         lblCicloGlobal.setText(String.valueOf(simulador.getCicloGlobal()));
         
-        // actualiza proceso actual
+        // Proceso actual
         Proceso actual = simulador.getProcesoActual();
         if (actual != null) {
             lblProcesoActual.setText(actual.getPcb().getNombre() + 
@@ -446,7 +485,7 @@ public class VentanaPrincipal extends JFrame implements SimuladorListener {
             lblProcesoActual.setText("Ninguno");
         }
         
-        // actualiza paneles
+        // Paneles
         panelColas.actualizar();
         panelPCB.actualizar();
         panelMetricas.actualizar();

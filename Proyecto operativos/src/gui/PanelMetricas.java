@@ -1,10 +1,26 @@
 package gui;
 
-import javax.swing.*;
-import java.awt.*;
-import sistema.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Font;
+import java.awt.GridLayout;
+
+import javax.swing.BorderFactory;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.SwingConstants;
+
+import sistema.Metricas;
+import sistema.Simulador;
 
 public class PanelMetricas extends JPanel {
+    /**
+     * PanelMetricas - Tablero con KPIs del sistema
+     * 
+     * Muestra indicadores clave de rendimiento calculados por Metricas:
+     * throughput, utilización de CPU, tiempos promedio, equidad, etc.
+     */
     private Simulador simulador;
     private JLabel lblThroughput;
     private JLabel lblUtilizacionCPU;

@@ -1,10 +1,19 @@
 package planificacion;
 
-import modelo.Proceso;
 import estructuras.Cola;
 import estructuras.Lista;
+import modelo.Proceso;
 
 public class SJF implements Planificador {
+    /**
+     * SJF - Shortest Job First (o SRTF si es preemptive)
+     * 
+     * Selecciona siempre el proceso con menos tiempo restante.
+     * - Modo no-preemptive: una vez entra, corre hasta terminar.
+     * - Modo preemptive (SRTF): puede ser interrumpido si llega uno más corto.
+     * 
+     * Nota: Esta implementación selecciona al más corto cuando la CPU queda libre.
+     */
     private boolean esPreemptive;
     
     public SJF(boolean esPreemptive) {
@@ -62,6 +71,7 @@ public class SJF implements Planificador {
     
     @Override
     public void setQuantum(int quantum) {
+        // SJF no usa quantum
     }
     
     @Override
@@ -71,6 +81,7 @@ public class SJF implements Planificador {
     
     @Override
     public void reiniciar() {
+        // Sin estado interno que reiniciar
     }
     
     public boolean esPreemptive() {

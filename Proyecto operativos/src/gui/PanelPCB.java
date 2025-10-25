@@ -1,13 +1,30 @@
 package gui;
 
-import javax.swing.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Font;
+
+import javax.swing.BorderFactory;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
+import javax.swing.SwingConstants;
 import javax.swing.table.DefaultTableModel;
-import java.awt.*;
+
+import estructuras.Lista;
+import modelo.PCB;
+import modelo.Proceso;
 import sistema.Simulador;
-import modelo.*;
-import estructuras.*;
 
 public class PanelPCB extends JPanel {
+    /**
+     * PanelPCB - Resumen de PCBs y proceso en CPU
+     * 
+     * Arriba: muestra el proceso actual en CPU con PC y MAR.
+     * Abajo: una tabla con los registros y estado de todos los procesos.
+     */
     private Simulador simulador;
     private JTable tablaPCB;
     private DefaultTableModel modeloTabla;

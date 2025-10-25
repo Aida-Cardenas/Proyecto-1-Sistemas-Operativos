@@ -1,13 +1,27 @@
 package persistencia;
 
-import java.io.*;
-import modelo.Proceso;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+
 import estructuras.Lista;
+import modelo.Proceso;
 
 public class ConfiguracionPersistencia {
+    /**
+     * ConfiguracionPersistencia - Guarda y carga configuración simple en CSV
+     * 
+     * Dos responsabilidades:
+     * - Guardar/cargar la duración del ciclo
+     * - Guardar/cargar la lista de procesos (parametrizada) como CSV
+     */
     private static final String ARCHIVO_CONFIG = "configuracion.csv";
     private static final String ARCHIVO_PROCESOS = "procesos.csv";
     
+    // Guarda la configuración global (por ahora, solo duración del ciclo)
     public static void guardarConfiguracion(int duracionCiclo) {
         try (PrintWriter writer = new PrintWriter(new FileWriter(ARCHIVO_CONFIG))) {
             writer.println("parametro,valor");
@@ -17,6 +31,7 @@ public class ConfiguracionPersistencia {
         }
     }
     
+    // Lee la duración del ciclo desde el archivo, con 1000ms como default
     public static int cargarDuracionCiclo() {
         int duracionCiclo = 1000; // valor por defecto
         
@@ -42,6 +57,7 @@ public class ConfiguracionPersistencia {
         return duracionCiclo;
     }
     
+    // Guarda una lista parametrizada de procesos en un CSV con cabecera
     public static void guardarProcesos(Lista<ProcesoConfig> procesos) {
         try (PrintWriter writer = new PrintWriter(new FileWriter(ARCHIVO_PROCESOS))) {
             writer.println("nombre,numInstrucciones,esCPUBound,ciclosExcepcion,ciclosCompletarExcepcion,prioridad");
@@ -62,6 +78,7 @@ public class ConfiguracionPersistencia {
         }
     }
     
+    // Carga la lista de procesos desde el CSV, validando formato
     public static Lista<ProcesoConfig> cargarProcesos() {
         Lista<ProcesoConfig> procesos = new Lista<>();
         
@@ -95,6 +112,7 @@ public class ConfiguracionPersistencia {
     }
     
     public static class ProcesoConfig {
+        // DTO simple para parametrizar procesos en disco
         public String nombre;
         public int numInstrucciones;
         public boolean esCPUBound;
@@ -114,6 +132,7 @@ public class ConfiguracionPersistencia {
             this.prioridad = prioridad;
         }
         
+        // Convierte esta configuración en un Proceso listo para simular
         public Proceso crearProceso() {
             Proceso p = new Proceso(nombre, numInstrucciones, esCPUBound, 
                                    ciclosExcepcion, ciclosCompletarExcepcion);

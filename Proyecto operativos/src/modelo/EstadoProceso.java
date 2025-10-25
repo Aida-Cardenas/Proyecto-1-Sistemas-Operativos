@@ -1,6 +1,6 @@
 package modelo;
 
-//no se si falte alguno creo que esos son todos
+//do u want the house tour?
 
 public enum EstadoProceso {
     NUEVO,

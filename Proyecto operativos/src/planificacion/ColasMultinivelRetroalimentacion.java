@@ -6,8 +6,8 @@ import java.util.Map;
 import modelo.Proceso;
 
 public class ColasMultinivelRetroalimentacion implements Planificador {
-    private Cola<Proceso> cola1; // quantum = 2
-    private Cola<Proceso> cola2; // quantum = 4
+    private Cola<Proceso> cola1; 
+    private Cola<Proceso> cola2; 
     private Cola<Proceso> cola3; // FCFS
     private Map<Integer, Integer> procesoACola; // tracking cual proceso en cola
     private int quantum1 = 2;

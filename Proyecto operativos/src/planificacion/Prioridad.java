@@ -43,7 +43,6 @@ public class Prioridad implements Planificador {
             }
         }
         
-        // Reconstruir la cola sin el proceso seleccionado
         Cola<Proceso> nuevaCola = new Cola<>();
         for (int i = 0; i < procesos.tamaño(); i++) {
             Proceso p = procesos.obtener(i);

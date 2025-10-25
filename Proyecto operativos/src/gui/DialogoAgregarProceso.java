@@ -86,7 +86,7 @@ public class DialogoAgregarProceso extends JDialog {
       panelCentral.add(this.spinnerCiclosExcepcion, gbc);
       gbc.gridx = 0;
       gbc.gridy = 4;
-      panelCentral.add(new JLabel("Ciclos para Completar I/O:"), gbc);
+      panelCentral.add(new JLabel("Ciclos para  I/O:"), gbc);
       gbc.gridx = 1;
       this.spinnerCiclosCompletarExcepcion = new JSpinner(new SpinnerNumberModel(3, 0, 100, 1));
       panelCentral.add(this.spinnerCiclosCompletarExcepcion, gbc);

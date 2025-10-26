@@ -98,7 +98,7 @@ public class PanelColas extends JPanel {
       
       // Panel para colas multinivel (inicialmente oculto)
       panelColasMultinivel = new JPanel(new GridLayout(1, 3, 5, 5));
-      panelColasMultinivel.setBorder(BorderFactory.createTitledBorder("🎯 Backstage - Colas Internas del Planificador"));
+      panelColasMultinivel.setBorder(BorderFactory.createTitledBorder(" Colas Internas del Planificador"));
       panelColasMultinivel.setVisible(false);
       
       // Cola 1 (Alta prioridad)

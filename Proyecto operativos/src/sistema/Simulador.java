@@ -7,6 +7,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import modelo.EstadoProceso;
 import modelo.PCB;
 import modelo.Proceso;
+import planificacion.ColasMultinivel;
 import planificacion.ColasMultinivelRetroalimentacion;
 import planificacion.FCFS;
 import planificacion.Planificador;
@@ -315,19 +316,33 @@ public class Simulador extends Thread {
       try {
          Lista temp;
          int i;
+         boolean encontrado = false;
+         
          if (proceso.getPcb().getEstado() == EstadoProceso.LISTO) {
+            // Primero intentar remover de cola general de listos
             temp = this.colaListos.obtenerTodos();
             this.colaListos.limpiar();
 
             for(i = 0; i < temp.tamaño(); ++i) {
                if (temp.obtener(i) != proceso) {
                   this.colaListos.encolar((Proceso)temp.obtener(i));
+               } else {
+                  encontrado = true;
                }
             }
-
-            proceso.getPcb().setEstado(EstadoProceso.LISTO_SUSPENDIDO);
-            this.colaListosSuspendidos.encolar(proceso);
-            this.registrarEvento("Proceso " + proceso.getPcb().getNombre() + " suspendido desde LISTO");
+            
+            // Si no se encontró en cola general, buscar en colas internas
+            if (!encontrado) {
+               encontrado = removerDeColasInternas(proceso);
+            }
+            
+            if (encontrado) {
+               proceso.getPcb().setEstado(EstadoProceso.LISTO_SUSPENDIDO);
+               this.colaListosSuspendidos.encolar(proceso);
+               this.registrarEvento("Proceso " + proceso.getPcb().getNombre() + " suspendido desde LISTO");
+            } else {
+               this.registrarEvento("ERROR: No se pudo encontrar proceso " + proceso.getPcb().getNombre() + " para suspender");
+            }
          } else if (proceso.getPcb().getEstado() == EstadoProceso.BLOQUEADO) {
             temp = this.colaBloqueados.obtenerTodos();
             this.colaBloqueados.limpiar();
@@ -522,29 +537,104 @@ public class Simulador extends Thread {
    
    /**
     * Cuenta procesos activos en memoria (listos + bloqueados + ejecutando)
+    * Incluye colas internas de algoritmos multinivel
     */
    private int getNumeroProcesosenMemoria() {
       int contador = 0;
+      
+      // Procesos en cola general de listos
       contador += this.colaListos.tamaño();
+      
+      // Procesos en colas internas de algoritmos multinivel
+      if (this.planificador instanceof ColasMultinivelRetroalimentacion) {
+         ColasMultinivelRetroalimentacion cmr = (ColasMultinivelRetroalimentacion) this.planificador;
+         contador += cmr.getCola1().tamaño();
+         contador += cmr.getCola2().tamaño();
+         contador += cmr.getCola3().tamaño();
+      } else if (this.planificador instanceof ColasMultinivel) {
+         ColasMultinivel cm = (ColasMultinivel) this.planificador;
+         contador += cm.getColaPrioridad1().tamaño();
+         contador += cm.getColaPrioridad2().tamaño();
+         contador += cm.getColaPrioridad3().tamaño();
+      }
+      
+      // Procesos bloqueados y proceso actual
       contador += this.colaBloqueados.tamaño();
       if (this.procesoActual != null) contador++;
+      
       return contador;
    }
    
    /**
     * Encuentra el proceso con menor prioridad para suspender
+    * Busca en todas las colas incluyendo las internas de algoritmos multinivel
     */
    private Proceso encontrarProcesoMenorPrioridad() {
       Proceso candidato = null;
       int menorPrioridad = Integer.MAX_VALUE;
       
-      // Buscar en cola de listos
+      // Buscar en cola general de listos
       Lista<Proceso> listos = this.colaListos.obtenerTodos();
       for (int i = 0; i < listos.tamaño(); i++) {
          Proceso p = listos.obtener(i);
          if (p.getPcb().getPrioridad() < menorPrioridad) {
             menorPrioridad = p.getPcb().getPrioridad();
             candidato = p;
+         }
+      }
+      
+      // Buscar en colas internas de algoritmos multinivel
+      if (this.planificador instanceof ColasMultinivelRetroalimentacion) {
+         ColasMultinivelRetroalimentacion cmr = (ColasMultinivelRetroalimentacion) this.planificador;
+         
+         // Buscar en Cola 1
+         Lista<Proceso> cola1 = cmr.getCola1().obtenerTodos();
+         for (int i = 0; i < cola1.tamaño(); i++) {
+            Proceso p = cola1.obtener(i);
+            if (p.getPcb().getPrioridad() < menorPrioridad) {
+               menorPrioridad = p.getPcb().getPrioridad();
+               candidato = p;
+            }
+         }
+         
+         // Buscar en Cola 2
+         Lista<Proceso> cola2 = cmr.getCola2().obtenerTodos();
+         for (int i = 0; i < cola2.tamaño(); i++) {
+            Proceso p = cola2.obtener(i);
+            if (p.getPcb().getPrioridad() < menorPrioridad) {
+               menorPrioridad = p.getPcb().getPrioridad();
+               candidato = p;
+            }
+         }
+         
+         // Buscar en Cola 3
+         Lista<Proceso> cola3 = cmr.getCola3().obtenerTodos();
+         for (int i = 0; i < cola3.tamaño(); i++) {
+            Proceso p = cola3.obtener(i);
+            if (p.getPcb().getPrioridad() < menorPrioridad) {
+               menorPrioridad = p.getPcb().getPrioridad();
+               candidato = p;
+            }
+         }
+         
+      } else if (this.planificador instanceof ColasMultinivel) {
+         ColasMultinivel cm = (ColasMultinivel) this.planificador;
+         
+         // Buscar en todas las colas de prioridad
+         Lista<Proceso>[] colas = new Lista[] {
+            cm.getColaPrioridad1().obtenerTodos(),
+            cm.getColaPrioridad2().obtenerTodos(),
+            cm.getColaPrioridad3().obtenerTodos()
+         };
+         
+         for (Lista<Proceso> cola : colas) {
+            for (int i = 0; i < cola.tamaño(); i++) {
+               Proceso p = cola.obtener(i);
+               if (p.getPcb().getPrioridad() < menorPrioridad) {
+                  menorPrioridad = p.getPcb().getPrioridad();
+                  candidato = p;
+               }
+            }
          }
       }
       
@@ -559,6 +649,53 @@ public class Simulador extends Thread {
       }
       
       return candidato;
+   }
+   
+   /**
+    * Remueve un proceso de las colas internas de algoritmos multinivel
+    * @param proceso El proceso a remover
+    * @return true si se encontró y removió el proceso, false caso contrario
+    */
+   private boolean removerDeColasInternas(Proceso proceso) {
+      if (this.planificador instanceof ColasMultinivelRetroalimentacion) {
+         ColasMultinivelRetroalimentacion cmr = (ColasMultinivelRetroalimentacion) this.planificador;
+         
+         // Intentar remover de Cola 1
+         if (removerDeCola(cmr.getCola1(), proceso)) return true;
+         // Intentar remover de Cola 2
+         if (removerDeCola(cmr.getCola2(), proceso)) return true;
+         // Intentar remover de Cola 3
+         if (removerDeCola(cmr.getCola3(), proceso)) return true;
+         
+      } else if (this.planificador instanceof ColasMultinivel) {
+         ColasMultinivel cm = (ColasMultinivel) this.planificador;
+         
+         // Intentar remover de cada cola de prioridad
+         if (removerDeCola(cm.getColaPrioridad1(), proceso)) return true;
+         if (removerDeCola(cm.getColaPrioridad2(), proceso)) return true;
+         if (removerDeCola(cm.getColaPrioridad3(), proceso)) return true;
+      }
+      
+      return false;
+   }
+   
+   /**
+    * Método auxiliar para remover un proceso específico de una cola
+    */
+   private boolean removerDeCola(Cola<Proceso> cola, Proceso proceso) {
+      Lista<Proceso> temp = cola.obtenerTodos();
+      cola.limpiar();
+      boolean encontrado = false;
+      
+      for (int i = 0; i < temp.tamaño(); i++) {
+         if (temp.obtener(i) != proceso) {
+            cola.encolar(temp.obtener(i));
+         } else {
+            encontrado = true;
+         }
+      }
+      
+      return encontrado;
    }
    
    /**

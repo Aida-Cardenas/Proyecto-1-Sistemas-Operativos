@@ -120,4 +120,17 @@ public class ColasMultinivelRetroalimentacion implements Planificador {
         // Colas Multinivel Retroalimentación usa su propia lógica en el Simulador
         return false;
     }
+    
+    // Métodos para acceder a las colas internas (para visualización en GUI)
+    public Cola<Proceso> getCola1() {
+        return cola1;
+    }
+    
+    public Cola<Proceso> getCola2() {
+        return cola2;
+    }
+    
+    public Cola<Proceso> getCola3() {
+        return cola3;
+    }
 }

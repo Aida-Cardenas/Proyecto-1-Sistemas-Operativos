@@ -102,4 +102,17 @@ public class ColasMultinivel implements Planificador {
         // Colas Multinivel usa su propia lógica en el Simulador
         return false;
     }
+    
+    // Métodos para acceder a las colas internas (para visualización en GUI)
+    public Cola<Proceso> getColaPrioridad1() {
+        return colaPrioridad1;
+    }
+    
+    public Cola<Proceso> getColaPrioridad2() {
+        return colaPrioridad2;
+    }
+    
+    public Cola<Proceso> getColaPrioridad3() {
+        return colaPrioridad3;
+    }
 }

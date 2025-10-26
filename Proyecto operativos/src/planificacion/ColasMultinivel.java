@@ -96,4 +96,10 @@ public class ColasMultinivel implements Planificador {
         colaPrioridad2.limpiar();
         colaPrioridad3.limpiar();
     }
+    
+    @Override
+    public boolean debeDesalojar(Proceso procesoActual, Cola<Proceso> colaListos) {
+        // Colas Multinivel usa su propia lógica en el Simulador
+        return false;
+    }
 }

@@ -43,4 +43,10 @@ public class FCFS implements Planificador {
     public void reiniciar() {
         // Sin estado interno que reiniciar
     }
+    
+    @Override
+    public boolean debeDesalojar(Proceso procesoActual, Cola<Proceso> colaListos) {
+        // FCFS nunca desaloja procesos (no es preemptive)
+        return false;
+    }
 }

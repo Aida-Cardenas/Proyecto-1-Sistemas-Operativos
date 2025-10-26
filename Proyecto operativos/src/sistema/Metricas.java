@@ -26,6 +26,12 @@ public class Metricas {
    private long tiempoTotalRespuesta = 0L;
    private long tiempoCPUOcupado = 0L;
    private int ciclosTotales = 0;
+   
+   // Listas para cálculo dinámico de promedios
+   private java.util.List<Long> tiemposEspera = new java.util.ArrayList<>();
+   private java.util.List<Long> tiemposRespuesta = new java.util.ArrayList<>();
+   private double ultimoTiempoEsperaPromedio = 0.0;
+   private double ultimoTiempoRespuestaPromedio = 0.0;
 
    public Metricas() {
    }
@@ -36,6 +42,13 @@ public class Metricas {
       this.tiempoTotalEjecucion += tiempoRetorno;
       this.tiempoTotalEspera += proceso.getPcb().getTiempoEspera();
       this.tiempoTotalRespuesta += proceso.getPcb().getTiempoRespuesta();
+      
+      // Agregar a listas para cálculo dinámico
+      this.tiemposEspera.add(proceso.getPcb().getTiempoEspera());
+      this.tiemposRespuesta.add(proceso.getPcb().getTiempoRespuesta());
+      
+      // Recalcular promedios inmediatamente
+      recalcularPromedios();
    }
 
    public void registrarCicloConCPU() {
@@ -51,17 +64,43 @@ public class Metricas {
       long tiempoTranscurrido = System.currentTimeMillis() - this.tiempoInicio;
       return tiempoTranscurrido == 0L ? 0.0 : (double)this.procesosCompletados * 1000.0 / (double)tiempoTranscurrido;
    }
+   
+   /**
+    * Throughput basado en ciclos de simulación (más estable para gráficas)
+    */
+   public double calcularThroughputPorCiclos() {
+      return this.ciclosTotales == 0 ? 0.0 : (double)this.procesosCompletados / (double)this.ciclosTotales * 100.0;
+   }
 
    public double calcularUtilizacionCPU() {
       return this.ciclosTotales == 0 ? 0.0 : (double)this.tiempoCPUOcupado * 100.0 / (double)this.ciclosTotales;
    }
 
    public double calcularTiempoEsperaPromedio() {
-      return this.procesosCompletados == 0 ? 0.0 : (double)this.tiempoTotalEspera / (double)this.procesosCompletados;
+      return ultimoTiempoEsperaPromedio;
    }
 
    public double calcularTiempoRespuestaPromedio() {
-      return this.procesosCompletados == 0 ? 0.0 : (double)this.tiempoTotalRespuesta / (double)this.procesosCompletados;
+      return ultimoTiempoRespuestaPromedio;
+   }
+   
+   /**
+    * Recalcula los promedios dinámicamente cuando se completa un proceso
+    */
+   private void recalcularPromedios() {
+      if (!tiemposEspera.isEmpty()) {
+         ultimoTiempoEsperaPromedio = tiemposEspera.stream()
+            .mapToLong(Long::longValue)
+            .average()
+            .orElse(0.0);
+      }
+      
+      if (!tiemposRespuesta.isEmpty()) {
+         ultimoTiempoRespuestaPromedio = tiemposRespuesta.stream()
+            .mapToLong(Long::longValue)
+            .average()
+            .orElse(0.0);
+      }
    }
 
    public double calcularTiempoRetornoPromedio() {
@@ -88,5 +127,11 @@ public class Metricas {
       this.tiempoTotalRespuesta = 0L;
       this.tiempoCPUOcupado = 0L;
       this.ciclosTotales = 0;
+      
+      // Limpiar listas dinámicas
+      this.tiemposEspera.clear();
+      this.tiemposRespuesta.clear();
+      this.ultimoTiempoEsperaPromedio = 0.0;
+      this.ultimoTiempoRespuestaPromedio = 0.0;
    }
 }

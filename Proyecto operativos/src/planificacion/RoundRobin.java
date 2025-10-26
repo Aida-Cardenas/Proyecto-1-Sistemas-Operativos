@@ -71,4 +71,10 @@ public class RoundRobin implements Planificador {
     public void reiniciar() {
         quantumRestante = quantum;
     }
+    
+    @Override
+    public boolean debeDesalojar(Proceso procesoActual, Cola<Proceso> colaListos) {
+        // Round Robin usa su propia lógica de quantum en el Simulador
+        return false;
+    }
 }

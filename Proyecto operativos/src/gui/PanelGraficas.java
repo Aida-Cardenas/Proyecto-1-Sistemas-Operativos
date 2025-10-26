@@ -32,8 +32,8 @@ public class PanelGraficas extends JPanel {
         
         Metricas metricas = simulador.getMetricas();
         
-        // agregar datos
-        historialThroughput.add(metricas.calcularThroughput());
+        // agregar datos - usar throughput basado en ciclos para mayor estabilidad
+        historialThroughput.add(metricas.calcularThroughputPorCiclos());
         historialUtilizacion.add(metricas.calcularUtilizacionCPU());
         historialTiempoEspera.add(metricas.calcularTiempoEsperaPromedio());
         historialTiempoRespuesta.add(metricas.calcularTiempoRespuestaPromedio());
@@ -60,9 +60,9 @@ public class PanelGraficas extends JPanel {
         int w = width / 2 - 20;
         int h = height / 2 - 40;
         
-        // throughput
+        // throughput - usar escala automática
         dibujarGrafica(g2, 10, 30, w, h, historialThroughput, 
-                      "Throughput (proc/seg)", Color.BLUE, 0, 0.1);
+                      "Throughput (proc/100ciclos)", Color.BLUE, 0, -1);
         
         // uso cpu
         dibujarGrafica(g2, width/2 + 10, 30, w, h, historialUtilizacion, 
@@ -95,9 +95,20 @@ public class PanelGraficas extends JPanel {
         if (datos.isEmpty()) {
             g2.setColor(Color.GRAY);
             g2.setFont(new Font("Arial", Font.ITALIC, 11));
-            String msg = "no hay datos";
+            String msg = "Sin datos aún...";
             int msgWidth = g2.getFontMetrics().stringWidth(msg);
             g2.drawString(msg, x + (width - msgWidth) / 2, y + height / 2);
+            return;
+        }
+        
+        // Si solo hay un dato, mostrar como punto
+        if (datos.size() == 1) {
+            double valor = datos.get(0);
+            g2.setColor(color);
+            g2.setFont(new Font("Arial", Font.BOLD, 11));
+            String valorStr = String.format("%.3f", valor);
+            int valorWidth = g2.getFontMetrics().stringWidth(valorStr);
+            g2.drawString(valorStr, x + (width - valorWidth) / 2, y + height / 2);
             return;
         }
         
@@ -106,6 +117,8 @@ public class PanelGraficas extends JPanel {
         if (maxY < 0) { 
             max = datos.stream().max(Double::compare).orElse(1.0);
             if (max == 0) max = 1.0;
+            // Agregar un pequeño margen superior para mejor visualización
+            max = max * 1.1;
         }
         double min = minY;
         
@@ -114,8 +127,10 @@ public class PanelGraficas extends JPanel {
         
         g2.setColor(Color.DARK_GRAY);
         g2.setFont(new Font("Arial", Font.PLAIN, 9));
-        g2.drawString(String.format("%.2f", max), x + 2, y + 15);
-        g2.drawString(String.format("%.2f", min), x + 2, y + height - 8);
+        // Formato dinámico para etiquetas
+        String formatoEtiqueta = (max < 1.0) ? "%.4f" : "%.2f";
+        g2.drawString(String.format(formatoEtiqueta, max), x + 2, y + 15);
+        g2.drawString(String.format(formatoEtiqueta, min), x + 2, y + height - 8);
         
         g2.setColor(color);
         g2.setStroke(new BasicStroke(2));
@@ -151,8 +166,11 @@ public class PanelGraficas extends JPanel {
             double valorActual = datos.get(datos.size() - 1);
             g2.setColor(color);
             g2.setFont(new Font("Arial", Font.BOLD, 11));
-            String valorStr = String.format("%.2f", valorActual);
-            g2.drawString(valorStr, x + width - 50, y + height - 10);
+            // Usar más decimales para valores pequeños
+            String valorStr = valorActual < 1.0 ? 
+                String.format("%.4f", valorActual) : 
+                String.format("%.2f", valorActual);
+            g2.drawString(valorStr, x + width - 60, y + height - 10);
         }
     }
     

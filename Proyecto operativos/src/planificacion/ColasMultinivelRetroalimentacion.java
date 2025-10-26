@@ -114,4 +114,10 @@ public class ColasMultinivelRetroalimentacion implements Planificador {
         cola3.limpiar();
         procesoACola.clear();
     }
+    
+    @Override
+    public boolean debeDesalojar(Proceso procesoActual, Cola<Proceso> colaListos) {
+        // Colas Multinivel Retroalimentación usa su propia lógica en el Simulador
+        return false;
+    }
 }

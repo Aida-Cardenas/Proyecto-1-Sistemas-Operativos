@@ -41,6 +41,9 @@ public class Simulador extends Thread {
    private int duracionCiclo = 1000;
    private int cicloGlobal = 0;
    
+   // Gestión de recursos limitados
+   private final int LIMITE_MEMORIA = 10; // Máximo 10 procesos en memoria activa
+   
    private Metricas metricas = new Metricas();
    private Semaphore semaforoCPU = new Semaphore(1);
    private ReentrantLock lock = new ReentrantLock();
@@ -75,16 +78,27 @@ public class Simulador extends Thread {
          }
       }
 
+      // Mostrar estadísticas finales
+      if (!this.ejecutando) {
+         mostrarEstadisticasFinales();
+      }
+      
       this.registrarEvento("SIMULADOR DETENIDO");
    }
 
    private void ejecutarCiclo() {
-      this.lock.lock();
-
       try {
+         semaforoCPU.acquire(); // Adquirir acceso exclusivo a la CPU
+         this.lock.lock();
+
          ++this.cicloGlobal;
          
          this.procesarExcepciones();
+         
+         // Verificar periódicamente gestión de recursos (cada 10 ciclos)
+         if (this.cicloGlobal % 10 == 0) {
+            this.gestionarRecursos();
+         }
          
          if (this.procesoActual == null) {
             this.modoSO = true;
@@ -119,8 +133,20 @@ public class Simulador extends Thread {
 
                this.metricas.registrarCicloConCPU();
             } else {
-               this.registrarEvento("CPU Inactivo - Cola de listos vacía");
-               this.metricas.registrarCicloSinCPU();
+               // Verificar si realmente no hay más trabajo que hacer
+               if (todoElTrabajoCompletado()) {
+                  this.registrarEvento("🎉 SIMULACIÓN COMPLETADA AUTOMÁTICAMENTE - Todos los procesos terminados");
+                  this.ejecutando = false;
+                  
+                  // Notificar a la interfaz que la simulación terminó
+                  if (this.listener != null) {
+                     this.listener.onActualizacion();
+                  }
+                  return;
+               } else {
+                  this.registrarEvento("CPU Inactivo - Cola de listos vacía");
+                  this.metricas.registrarCicloSinCPU();
+               }
             }
          } else {
             this.modoSO = false;
@@ -146,6 +172,12 @@ public class Simulador extends Thread {
                this.colaBloqueados.encolar(this.procesoActual);
                this.registrarEvento("Proceso " + this.procesoActual.getPcb().getNombre() + 
                                    " genera excepción I/O, BLOQUEADO");
+               
+               // Crear y iniciar thread independiente para manejar I/O
+               ExceptionThread ioThread = new ExceptionThread(this.procesoActual, this);
+               ioThread.start();
+               this.registrarEvento("SISTEMA: Iniciado Thread I/O para " + this.procesoActual.getPcb().getNombre());
+               
                this.procesoActual = null;
                return;
             }
@@ -160,9 +192,31 @@ public class Simulador extends Thread {
                
                this.procesoActual.getPcb().setEstado(EstadoProceso.TERMINADO);
                this.procesoActual.getPcb().setTiempoFinalizacion(System.currentTimeMillis());
+               
+               // Calcular tiempos de espera y respuesta correctamente
+               calcularTiemposProceso(this.procesoActual);
+               
                this.procesosTerminados.agregar(this.procesoActual);
                this.metricas.registrarProcesoCompletado(this.procesoActual);
-               this.registrarEvento("Proceso " + this.procesoActual.getPcb().getNombre() + " TERMINADO");
+               this.registrarEvento("Proceso " + this.procesoActual.getPcb().getNombre() + " TERMINADO" +
+                                   " | Espera: " + this.procesoActual.getPcb().getTiempoEspera() + "ms" +
+                                   " | Respuesta: " + this.procesoActual.getPcb().getTiempoRespuesta() + "ms");
+               this.procesoActual = null;
+               return;
+            }
+
+            // Verificar si el planificador quiere desalojar el proceso actual
+            if (this.planificador.debeDesalojar(this.procesoActual, this.colaListos)) {
+               this.modoSO = true;
+               if (this.listener != null) {
+                  this.listener.onCambioModo(true);
+                  this.listener.onActualizacion();
+               }
+               
+               this.procesoActual.getPcb().setEstado(EstadoProceso.LISTO);
+               this.colaListos.encolar(this.procesoActual);
+               this.registrarEvento("Proceso " + this.procesoActual.getPcb().getNombre() + 
+                                   " desalojado por planificador preemptive");
                this.procesoActual = null;
                return;
             }
@@ -209,42 +263,22 @@ public class Simulador extends Thread {
          if (this.listener != null) {
             this.listener.onActualizacion();
          }
+      } catch (InterruptedException e) {
+         this.registrarEvento("ERROR: Hilo interrumpido durante adquisición de CPU");
+         e.printStackTrace();
       } finally {
          this.lock.unlock();
+         semaforoCPU.release(); // Liberar acceso a la CPU
       }
    }
 
    private void procesarExcepciones() {
-      if (!this.colaBloqueados.estaVacia()) {
-         Lista<Proceso> procesosADesbloquear = new Lista();
-         Lista<Proceso> procesosBloqueados = this.colaBloqueados.obtenerTodos();
-
-         int i;
-         Proceso p;
-         for(i = 0; i < procesosBloqueados.tamaño(); ++i) {
-            p = (Proceso)procesosBloqueados.obtener(i);
-            if (p.procesarExcepcion()) {
-               procesosADesbloquear.agregar(p);
-               this.registrarEvento("Proceso " + p.getPcb().getNombre() + " terminó I/O");
-            }
-         }
-
-         for(i = 0; i < procesosADesbloquear.tamaño(); ++i) {
-            p = (Proceso)procesosADesbloquear.obtener(i);
-            Lista<Proceso> temp = this.colaBloqueados.obtenerTodos();
-            this.colaBloqueados.limpiar();
-
-            for(int j = 0; j < temp.tamaño(); ++j) {
-               if (temp.obtener(j) != p) {
-                  this.colaBloqueados.encolar((Proceso)temp.obtener(j));
-               }
-            }
-
-            p.getPcb().setEstado(EstadoProceso.LISTO);
-            this.colaListos.encolar(p);
-            this.registrarEvento("Proceso " + p.getPcb().getNombre() + " vuelve a LISTO");
-         }
-      }
+      // NOTA: Con la nueva implementación usando ExceptionThread,
+      // este método se simplifica ya que los threads manejan automáticamente
+      // el retorno de procesos de I/O a la cola de listos.
+      
+      // Solo verificamos si hay nuevos procesos que acaban de generar excepción
+      // y necesitan crear su thread de I/O (esto se maneja en ejecutarCiclo)
    }
 
    public void agregarProceso(Proceso proceso) {
@@ -253,9 +287,23 @@ public class Simulador extends Thread {
       try {
          proceso.getPcb().setEstado(EstadoProceso.LISTO);
          this.todosLosProcesos.agregar(proceso);
+         
+         // Verificar límites de recursos antes de agregar
+         if (getNumeroProcesosenMemoria() >= LIMITE_MEMORIA) {
+            // Suspender proceso de menor prioridad para hacer espacio
+            Proceso procesoASuspender = encontrarProcesoMenorPrioridad();
+            if (procesoASuspender != null) {
+               suspenderProceso(procesoASuspender);
+               this.registrarEvento("SISTEMA: Proceso suspendido automáticamente por límite de memoria");
+            }
+         }
+         
          this.planificador.agregarProceso(proceso, this.colaListos);
          this.registrarEvento("Proceso creado: " + proceso.getPcb().getNombre() + 
                             " con " + proceso.getNumeroInstrucciones() + " instrucciones");
+                            
+         // Verificar si hay procesos suspendidos que puedan reanudarse
+         verificarReanudacionAutomatica();
       } finally {
          this.lock.unlock();
       }
@@ -436,6 +484,7 @@ public class Simulador extends Thread {
 
    public void detener() {
       this.ejecutando = false;
+      this.registrarEvento("SIMULADOR DETENIDO MANUALMENTE");
    }
 
    public boolean isEjecutando() {
@@ -466,6 +515,221 @@ public class Simulador extends Thread {
          this.registrarEvento(" SIMULACIÓN REINICIADA");
       } finally {
          this.lock.unlock();
+      }
+   }
+   
+   // Métodos auxiliares para gestión de recursos y suspensión automática
+   
+   /**
+    * Cuenta procesos activos en memoria (listos + bloqueados + ejecutando)
+    */
+   private int getNumeroProcesosenMemoria() {
+      int contador = 0;
+      contador += this.colaListos.tamaño();
+      contador += this.colaBloqueados.tamaño();
+      if (this.procesoActual != null) contador++;
+      return contador;
+   }
+   
+   /**
+    * Encuentra el proceso con menor prioridad para suspender
+    */
+   private Proceso encontrarProcesoMenorPrioridad() {
+      Proceso candidato = null;
+      int menorPrioridad = Integer.MAX_VALUE;
+      
+      // Buscar en cola de listos
+      Lista<Proceso> listos = this.colaListos.obtenerTodos();
+      for (int i = 0; i < listos.tamaño(); i++) {
+         Proceso p = listos.obtener(i);
+         if (p.getPcb().getPrioridad() < menorPrioridad) {
+            menorPrioridad = p.getPcb().getPrioridad();
+            candidato = p;
+         }
+      }
+      
+      // Buscar en cola de bloqueados
+      Lista<Proceso> bloqueados = this.colaBloqueados.obtenerTodos();
+      for (int i = 0; i < bloqueados.tamaño(); i++) {
+         Proceso p = bloqueados.obtener(i);
+         if (p.getPcb().getPrioridad() < menorPrioridad) {
+            menorPrioridad = p.getPcb().getPrioridad();
+            candidato = p;
+         }
+      }
+      
+      return candidato;
+   }
+   
+   /**
+    * Verifica si hay espacio para reanudar procesos suspendidos
+    */
+   private void verificarReanudacionAutomatica() {
+      if (getNumeroProcesosenMemoria() < LIMITE_MEMORIA && !this.colaListosSuspendidos.estaVacia()) {
+         // Reanudar el primer proceso suspendido
+         Lista<Proceso> suspendidos = this.colaListosSuspendidos.obtenerTodos();
+         if (suspendidos.tamaño() > 0) {
+            Proceso procesoAReanudar = suspendidos.obtener(0);
+            reanudarProceso(procesoAReanudar);
+            this.registrarEvento("SISTEMA: Proceso reanudado automáticamente - hay recursos disponibles");
+         }
+      }
+   }
+   
+   /**
+    * Gestiona recursos del sistema periódicamente
+    */
+   private void gestionarRecursos() {
+      int procesosEnMemoria = getNumeroProcesosenMemoria();
+      
+      // Si hay demasiados procesos en memoria, suspender algunos
+      if (procesosEnMemoria > LIMITE_MEMORIA) {
+         Proceso procesoASuspender = encontrarProcesoMenorPrioridad();
+         if (procesoASuspender != null) {
+            suspenderProceso(procesoASuspender);
+            this.registrarEvento("SISTEMA: Gestión automática de recursos - proceso suspendido");
+         }
+      }
+      
+      // Si hay espacio, reanudar procesos suspendidos
+      else if (procesosEnMemoria < LIMITE_MEMORIA) {
+         verificarReanudacionAutomatica();
+      }
+   }
+   
+   /**
+    * Verifica si todo el trabajo ha sido completado
+    */
+   private boolean todoElTrabajoCompletado() {
+      // No hay trabajo si:
+      // 1. No hay proceso ejecutándose
+      // 2. No hay procesos en cola de listos
+      // 3. No hay procesos bloqueados esperando I/O
+      // 4. No hay procesos suspendidos esperando recursos
+      // 5. Todos los procesos creados están terminados
+      
+      boolean sinProcesoActual = (this.procesoActual == null);
+      boolean sinProcesosListos = this.colaListos.estaVacia();
+      boolean sinProcesosBloqueados = this.colaBloqueados.estaVacia();
+      boolean sinProcesosSuspendidos = this.colaListosSuspendidos.estaVacia() && 
+                                      this.colaBloqueadosSuspendidos.estaVacia();
+      
+      // Verificación adicional: todos los procesos creados están terminados
+      boolean todosTerminados = (this.todosLosProcesos.tamaño() > 0) && 
+                               (this.procesosTerminados.tamaño() == this.todosLosProcesos.tamaño());
+      
+      return sinProcesoActual && sinProcesosListos && sinProcesosBloqueados && 
+             sinProcesosSuspendidos && todosTerminados;
+   }
+   
+   /**
+    * Muestra estadísticas finales cuando termina la simulación
+    */
+   private void mostrarEstadisticasFinales() {
+      this.registrarEvento("==================== ESTADÍSTICAS FINALES ====================");
+      this.registrarEvento("Planificador usado: " + this.planificador.getNombre());
+      this.registrarEvento("Ciclos totales ejecutados: " + this.cicloGlobal);
+      this.registrarEvento("Procesos creados: " + this.todosLosProcesos.tamaño());
+      this.registrarEvento("Procesos completados: " + this.procesosTerminados.tamaño());
+      
+      if (this.metricas != null) {
+         this.registrarEvento("Utilización de CPU: " + 
+                            String.format("%.2f%%", this.metricas.calcularUtilizacionCPU()));
+         this.registrarEvento("Throughput: " + 
+                            String.format("%.2f procesos/segundo", this.metricas.calcularThroughput()));
+      }
+      
+      this.registrarEvento("============================================================");
+   }
+   
+   /**
+    * Calcula los tiempos de espera y respuesta de un proceso al terminar
+    */
+   private void calcularTiemposProceso(Proceso proceso) {
+      PCB pcb = proceso.getPcb();
+      
+      // Tiempo total desde llegada hasta finalización
+      long tiempoTotal = pcb.getTiempoFinalizacion() - pcb.getTiempoLlegada();
+      
+      // Tiempo teórico que DEBERÍA haber tomado ejecutar todas las instrucciones
+      // (número de instrucciones * duración de ciclo)
+      long tiempoEjecucionTeorico = proceso.getNumeroInstrucciones() * this.duracionCiclo;
+      
+      // Si el proceso tuvo I/O, agregar tiempo de bloqueo estimado
+      long tiempoIOEstimado = 0;
+      if (proceso.esIOBound()) {
+         // Calcular cuántas excepciones I/O debería haber tenido
+         int numeroExcepciones = proceso.getCiclosEjecutados() / proceso.getCiclosParaExcepcion();
+         tiempoIOEstimado = numeroExcepciones * proceso.getCiclosParaCompletarExcepcion() * this.duracionCiclo;
+      }
+      
+      // Tiempo de espera = Tiempo total - Tiempo ejecución - Tiempo I/O
+      long tiempoEspera = tiempoTotal - tiempoEjecucionTeorico - tiempoIOEstimado;
+      
+      // El tiempo de espera nunca puede ser negativo
+      pcb.setTiempoEspera(Math.max(0, tiempoEspera));
+      
+      // Tiempo de respuesta ya se calculó cuando empezó a ejecutar por primera vez
+      if (pcb.getTiempoRespuesta() == -1) {
+         long tiempoRespuesta = pcb.getTiempoInicioEjecucion() - pcb.getTiempoLlegada();
+         pcb.setTiempoRespuesta(Math.max(0, tiempoRespuesta));
+      }
+      
+      // Debug: mostrar cálculos en el log
+      this.registrarEvento("DEBUG: Proceso " + proceso.getPcb().getNombre() + 
+                          " | Total: " + tiempoTotal + "ms" +
+                          " | Ejecución: " + tiempoEjecucionTeorico + "ms" + 
+                          " | I/O: " + tiempoIOEstimado + "ms" +
+                          " | Espera calculada: " + pcb.getTiempoEspera() + "ms");
+   }
+   
+   /**
+    * Thread independiente para manejar excepciones I/O
+    * Cada excepción I/O se ejecuta en su propio Thread
+    */
+   private class ExceptionThread extends Thread {
+      private Proceso proceso;
+      private Simulador simulador;
+      
+      public ExceptionThread(Proceso proceso, Simulador simulador) {
+         this.proceso = proceso;
+         this.simulador = simulador;
+         this.setName("IOThread-" + proceso.getPcb().getNombre());
+      }
+      
+      @Override
+      public void run() {
+         try {
+            // Simular tiempo de I/O real
+            int tiempoIO = proceso.getCiclosParaCompletarExcepcion() * simulador.getDuracionCiclo();
+            Thread.sleep(tiempoIO);
+            
+            // Regresar proceso a cola de listos
+            simulador.lock.lock();
+            try {
+               // Remover de cola bloqueados
+               Lista<Proceso> temp = simulador.colaBloqueados.obtenerTodos();
+               simulador.colaBloqueados.limpiar();
+               
+               for (int i = 0; i < temp.tamaño(); i++) {
+                  if (temp.obtener(i) != proceso) {
+                     simulador.colaBloqueados.encolar(temp.obtener(i));
+                  }
+               }
+               
+               // Agregar a cola de listos
+               proceso.getPcb().setEstado(EstadoProceso.LISTO);
+               simulador.colaListos.encolar(proceso);
+               simulador.registrarEvento("THREAD-IO: Proceso " + proceso.getPcb().getNombre() + 
+                                        " completó I/O y regresa a LISTO");
+               
+            } finally {
+               simulador.lock.unlock();
+            }
+            
+         } catch (InterruptedException e) {
+            simulador.registrarEvento("ERROR: Thread I/O interrumpido para " + proceso.getPcb().getNombre());
+         }
       }
    }
 }

@@ -110,7 +110,8 @@ public class VentanaPrincipal extends JFrame implements SimuladorListener {
             "SJF Preemptive (SRTF)",
             "Round Robin",
             "Prioridad Non-Preemptive",
-            "Prioridad Preemptive"
+            "Prioridad Preemptive",
+            "Colas Multinivel con Retroalimentación"
         };
         comboPlanificador = new JComboBox<>(planificadores);
         comboPlanificador.addActionListener(e -> cambiarPlanificador());
@@ -378,6 +379,32 @@ public class VentanaPrincipal extends JFrame implements SimuladorListener {
                 break;
             case "Prioridad Preemptive":
                 nuevoPlanificador = new Prioridad(true);
+                break;
+            case "Colas Multinivel con Retroalimentación":
+                String quantumMRStr = JOptionPane.showInputDialog(this, 
+                    "Ingrese el quantum para Cola 1:", "2");
+                if (quantumMRStr == null || quantumMRStr.trim().isEmpty()) {
+                    return;
+                }
+                try {
+                    int quantumMR = Integer.parseInt(quantumMRStr);
+                    if (quantumMR < 1) {
+                        JOptionPane.showMessageDialog(this, 
+                            "El quantum debe ser mayor a 0", 
+                            "Error", 
+                            JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+                    ColasMultinivelRetroalimentacion cmr = new ColasMultinivelRetroalimentacion();
+                    cmr.setQuantum(quantumMR);
+                    nuevoPlanificador = cmr;
+                } catch (NumberFormatException ex) {
+                    JOptionPane.showMessageDialog(this, 
+                        "Debe ingresar un número válido", 
+                        "Error", 
+                        JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
                 break;
         }
         

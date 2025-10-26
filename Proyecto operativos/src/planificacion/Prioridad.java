@@ -87,4 +87,21 @@ public class Prioridad implements Planificador {
     public boolean esPreemptive() {
         return esPreemptive;
     }
+    
+    @Override
+    public boolean debeDesalojar(Proceso procesoActual, Cola<Proceso> colaListos) {
+        if (!esPreemptive || colaListos.estaVacia() || procesoActual == null) {
+            return false;
+        }
+        
+        // Buscar si hay un proceso con mayor prioridad esperando
+        Lista<Proceso> procesos = colaListos.obtenerTodos();
+        for (int i = 0; i < procesos.tamaño(); i++) {
+            Proceso p = procesos.obtener(i);
+            if (p.getPcb().getPrioridad() < procesoActual.getPcb().getPrioridad()) {
+                return true; // ¡Hay uno con mayor prioridad!
+            }
+        }
+        return false;
+    }
 }

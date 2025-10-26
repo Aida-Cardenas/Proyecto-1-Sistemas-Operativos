@@ -10,4 +10,5 @@ public interface Planificador {
     void setQuantum(int quantum);
     int getQuantum();
     void reiniciar();
+    boolean debeDesalojar(Proceso procesoActual, Cola<Proceso> colaListos);
 }

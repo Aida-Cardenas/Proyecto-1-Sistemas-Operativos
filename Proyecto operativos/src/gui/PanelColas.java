@@ -15,6 +15,7 @@ import modelo.Proceso;
 import sistema.Simulador;
 import planificacion.ColasMultinivel;
 import planificacion.ColasMultinivelRetroalimentacion;
+import planificacion.Prioridad;
 
 public class PanelColas extends JPanel {
    /**
@@ -34,8 +35,11 @@ public class PanelColas extends JPanel {
    private JTextArea txtBloqueadosSuspendidos;
    private JTextArea txtTerminados;
    
-   // Colas para algoritmos multinivel
+   // Colas para algoritmos multinivel y prioridad
    private JPanel panelColasMultinivel;
+   private JPanel panelCola1Individual;
+   private JPanel panelCola2Individual;
+   private JPanel panelCola3Individual;
    private JTextArea txtCola1;
    private JTextArea txtCola2;
    private JTextArea txtCola3;
@@ -98,34 +102,34 @@ public class PanelColas extends JPanel {
       panelColasMultinivel.setVisible(false);
       
       // Cola 1 (Alta prioridad)
-      JPanel panelCola1 = new JPanel(new BorderLayout());
-      panelCola1.setBorder(BorderFactory.createTitledBorder("Cola 1 (Alta Prioridad)"));
+      panelCola1Individual = new JPanel(new BorderLayout());
+      panelCola1Individual.setBorder(BorderFactory.createTitledBorder("Cola 1 (Alta Prioridad)"));
       this.txtCola1 = new JTextArea(4, 15);
       this.txtCola1.setEditable(false);
       this.txtCola1.setFont(new Font("Monospaced", Font.PLAIN, 10));
       JScrollPane scrollCola1 = new JScrollPane(this.txtCola1);
-      panelCola1.add(scrollCola1, BorderLayout.CENTER);
-      panelColasMultinivel.add(panelCola1);
+      panelCola1Individual.add(scrollCola1, BorderLayout.CENTER);
+      panelColasMultinivel.add(panelCola1Individual);
       
       // Cola 2 (Media prioridad)
-      JPanel panelCola2 = new JPanel(new BorderLayout());
-      panelCola2.setBorder(BorderFactory.createTitledBorder("Cola 2 (Media Prioridad)"));
+      panelCola2Individual = new JPanel(new BorderLayout());
+      panelCola2Individual.setBorder(BorderFactory.createTitledBorder("Cola 2 (Media Prioridad)"));
       this.txtCola2 = new JTextArea(4, 15);
       this.txtCola2.setEditable(false);
       this.txtCola2.setFont(new Font("Monospaced", Font.PLAIN, 10));
       JScrollPane scrollCola2 = new JScrollPane(this.txtCola2);
-      panelCola2.add(scrollCola2, BorderLayout.CENTER);
-      panelColasMultinivel.add(panelCola2);
+      panelCola2Individual.add(scrollCola2, BorderLayout.CENTER);
+      panelColasMultinivel.add(panelCola2Individual);
       
       // Cola 3 (Baja prioridad)
-      JPanel panelCola3 = new JPanel(new BorderLayout());
-      panelCola3.setBorder(BorderFactory.createTitledBorder("Cola 3 (Baja Prioridad/FCFS)"));
+      panelCola3Individual = new JPanel(new BorderLayout());
+      panelCola3Individual.setBorder(BorderFactory.createTitledBorder("Cola 3 (Baja Prioridad/FCFS)"));
       this.txtCola3 = new JTextArea(4, 15);
       this.txtCola3.setEditable(false);
       this.txtCola3.setFont(new Font("Monospaced", Font.PLAIN, 10));
       JScrollPane scrollCola3 = new JScrollPane(this.txtCola3);
-      panelCola3.add(scrollCola3, BorderLayout.CENTER);
-      panelColasMultinivel.add(panelCola3);
+      panelCola3Individual.add(scrollCola3, BorderLayout.CENTER);
+      panelColasMultinivel.add(panelCola3Individual);
       
       // Agregar paneles al layout principal
       this.add(panelColasEstandar, BorderLayout.CENTER);
@@ -133,12 +137,29 @@ public class PanelColas extends JPanel {
    }
 
    public void actualizar() {
-      // Verificar si estamos usando algoritmos multinivel
+      // Verificar si estamos usando algoritmos con backstage
       boolean usandoMultinivel = simulador.getPlanificador() instanceof ColasMultinivel || 
                                 simulador.getPlanificador() instanceof ColasMultinivelRetroalimentacion;
+      boolean usandoPrioridad = simulador.getPlanificador() instanceof Prioridad;
+      boolean mostrarBackstage = usandoMultinivel || usandoPrioridad;
       
-      // Mostrar/ocultar panel de colas multinivel
-      panelColasMultinivel.setVisible(usandoMultinivel);
+      // Actualizar título del panel y subpaneles según el algoritmo
+      if (usandoMultinivel) {
+         panelColasMultinivel.setBorder(BorderFactory.createTitledBorder("🎯 Backstage - Colas Internas del Planificador"));
+         panelCola1Individual.setBorder(BorderFactory.createTitledBorder("Cola 1 (Alta Prioridad)"));
+         panelCola2Individual.setBorder(BorderFactory.createTitledBorder("Cola 2 (Media Prioridad)"));
+         panelCola3Individual.setBorder(BorderFactory.createTitledBorder("Cola 3 (Baja Prioridad/FCFS)"));
+      } else if (usandoPrioridad) {
+         Prioridad planificadorPrioridad = (Prioridad) simulador.getPlanificador();
+         String tipoPreemptive = planificadorPrioridad.esPreemptive() ? " ⚡Preemptive" : " 🔒Non-Preemptive";
+         panelColasMultinivel.setBorder(BorderFactory.createTitledBorder("🎯 Backstage - Procesos Agrupados por Prioridad" + tipoPreemptive));
+         panelCola1Individual.setBorder(BorderFactory.createTitledBorder("Prioridad Alta (0-1)"));
+         panelCola2Individual.setBorder(BorderFactory.createTitledBorder("Prioridad Media (2-3)"));
+         panelCola3Individual.setBorder(BorderFactory.createTitledBorder("Prioridad Baja (4+)"));
+      }
+      
+      // Mostrar/ocultar panel de backstage
+      panelColasMultinivel.setVisible(mostrarBackstage);
       
       // Actualizar colas estándar
       StringBuilder sbListos = new StringBuilder();
@@ -206,9 +227,13 @@ public class PanelColas extends JPanel {
 
       this.txtTerminados.setText(sbTerminados.toString());
       
-      // Actualizar colas multinivel si están en uso
-      if (usandoMultinivel) {
-         actualizarColasMultinivel();
+      // Actualizar backstage si está en uso
+      if (mostrarBackstage) {
+         if (usandoMultinivel) {
+            actualizarColasMultinivel();
+         } else if (usandoPrioridad) {
+            actualizarColasPrioridad();
+         }
       }
    }
 
@@ -317,6 +342,78 @@ public class PanelColas extends JPanel {
          }
          this.txtCola3.setText(sbCola3.toString());
       }
+   }
+   
+   private void actualizarColasPrioridad() {
+      // Para algoritmos de prioridad, agrupamos los procesos de la cola de listos por prioridad
+      Prioridad planificadorPrioridad = (Prioridad) simulador.getPlanificador();
+      Lista<Proceso> todosLosListos = simulador.getColaListos().obtenerTodos();
+      
+      // Agrupar procesos por prioridad
+      Lista<Proceso> prioridadAlta = new Lista<>();    // Prioridad 0-1
+      Lista<Proceso> prioridadMedia = new Lista<>();   // Prioridad 2-3  
+      Lista<Proceso> prioridadBaja = new Lista<>();    // Prioridad 4+
+      
+      for (int i = 0; i < todosLosListos.tamaño(); i++) {
+         Proceso p = todosLosListos.obtener(i);
+         int prioridad = p.getPcb().getPrioridad();
+         
+         if (prioridad <= 1) {
+            prioridadAlta.agregar(p);
+         } else if (prioridad <= 3) {
+            prioridadMedia.agregar(p);
+         } else {
+            prioridadBaja.agregar(p);
+         }
+      }
+      
+      // Actualizar Cola 1 (Alta Prioridad)
+      StringBuilder sbCola1 = new StringBuilder();
+      if (prioridadAlta.tamaño() == 0) {
+         sbCola1.append("(Vacía)\n");
+      } else {
+         for (int i = 0; i < prioridadAlta.tamaño(); i++) {
+            Proceso p = prioridadAlta.obtener(i);
+            sbCola1.append(String.format("[%d] %s\n(Prio: %d) %s\n", 
+               p.getPcb().getId(), 
+               p.getPcb().getNombre(),
+               p.getPcb().getPrioridad(),
+               planificadorPrioridad.esPreemptive() ? "⚡" : "🔒"));
+         }
+      }
+      this.txtCola1.setText(sbCola1.toString());
+      
+      // Actualizar Cola 2 (Media Prioridad)
+      StringBuilder sbCola2 = new StringBuilder();
+      if (prioridadMedia.tamaño() == 0) {
+         sbCola2.append("(Vacía)\n");
+      } else {
+         for (int i = 0; i < prioridadMedia.tamaño(); i++) {
+            Proceso p = prioridadMedia.obtener(i);
+            sbCola2.append(String.format("[%d] %s\n(Prio: %d) %s\n", 
+               p.getPcb().getId(), 
+               p.getPcb().getNombre(),
+               p.getPcb().getPrioridad(),
+               planificadorPrioridad.esPreemptive() ? "⚡" : "🔒"));
+         }
+      }
+      this.txtCola2.setText(sbCola2.toString());
+      
+      // Actualizar Cola 3 (Baja Prioridad)
+      StringBuilder sbCola3 = new StringBuilder();
+      if (prioridadBaja.tamaño() == 0) {
+         sbCola3.append("(Vacía)\n");
+      } else {
+         for (int i = 0; i < prioridadBaja.tamaño(); i++) {
+            Proceso p = prioridadBaja.obtener(i);
+            sbCola3.append(String.format("[%d] %s\n(Prio: %d) %s\n", 
+               p.getPcb().getId(), 
+               p.getPcb().getNombre(),
+               p.getPcb().getPrioridad(),
+               planificadorPrioridad.esPreemptive() ? "⚡" : "🔒"));
+         }
+      }
+      this.txtCola3.setText(sbCola3.toString());
    }
 
    public void setSimulador(Simulador simulador) {

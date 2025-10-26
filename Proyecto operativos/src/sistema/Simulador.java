@@ -11,6 +11,7 @@ import planificacion.ColasMultinivel;
 import planificacion.ColasMultinivelRetroalimentacion;
 import planificacion.FCFS;
 import planificacion.Planificador;
+import planificacion.Prioridad;
 import planificacion.RoundRobin;
 
 /**
@@ -289,13 +290,39 @@ public class Simulador extends Thread {
          proceso.getPcb().setEstado(EstadoProceso.LISTO);
          this.todosLosProcesos.agregar(proceso);
          
-         // Verificar límites de recursos antes de agregar
+         // Gestión inteligente de memoria
          if (getNumeroProcesosenMemoria() >= LIMITE_MEMORIA) {
-            // Suspender proceso de menor prioridad para hacer espacio
-            Proceso procesoASuspender = encontrarProcesoMenorPrioridad();
-            if (procesoASuspender != null) {
-               suspenderProceso(procesoASuspender);
-               this.registrarEvento("SISTEMA: Proceso suspendido automáticamente por límite de memoria");
+            
+            // Verificar si el planificador actual considera prioridades
+            boolean planificadorUsaPrioridades = (this.planificador instanceof Prioridad) ||
+                                                 (this.planificador instanceof ColasMultinivel) ||
+                                                 (this.planificador instanceof ColasMultinivelRetroalimentacion);
+            
+            if (planificadorUsaPrioridades) {
+               // Gestión basada en prioridades
+               Proceso procesoASuspender = encontrarProcesoMenorPrioridad();
+               
+               // Solo suspender si el nuevo proceso tiene MAYOR prioridad
+               if (procesoASuspender != null && 
+                   proceso.getPcb().getPrioridad() < procesoASuspender.getPcb().getPrioridad()) {
+                  suspenderProceso(procesoASuspender);
+                  this.registrarEvento("SISTEMA: Proceso Prio(" + procesoASuspender.getPcb().getPrioridad() + 
+                                      ") suspendido para proceso Prio(" + proceso.getPcb().getPrioridad() + ")");
+               } else if (procesoASuspender != null) {
+                  // El nuevo proceso tiene menor o igual prioridad -> suspenderlo directamente
+                  proceso.getPcb().setEstado(EstadoProceso.LISTO_SUSPENDIDO);
+                  this.colaListosSuspendidos.encolar(proceso);
+                  this.registrarEvento("SISTEMA: Proceso Prio(" + proceso.getPcb().getPrioridad() + 
+                                      ") enviado a suspensión (memoria llena)");
+                  return; // No agregar a memoria activa
+               }
+            } else {
+               // Gestión FIFO para algoritmos que no usan prioridades (FCFS, SJF, RR)
+               Proceso procesoASuspender = encontrarProcesoMenorPrioridad();
+               if (procesoASuspender != null) {
+                  suspenderProceso(procesoASuspender);
+                  this.registrarEvento("SISTEMA: Proceso suspendido por límite de memoria (FIFO)");
+               }
             }
          }
          
@@ -699,16 +726,48 @@ public class Simulador extends Thread {
    }
    
    /**
+    * Encuentra el proceso suspendido con MAYOR prioridad para cargar a memoria
+    * @return El proceso con mayor prioridad (menor número) en colas suspendidas
+    */
+   private Proceso encontrarProcesoMayorPrioridadSuspendido() {
+      Proceso candidato = null;
+      int mayorPrioridad = Integer.MAX_VALUE; // Menor número = mayor prioridad
+      
+      // Buscar en listos suspendidos
+      Lista<Proceso> listosSuspendidos = this.colaListosSuspendidos.obtenerTodos();
+      for (int i = 0; i < listosSuspendidos.tamaño(); i++) {
+         Proceso p = listosSuspendidos.obtener(i);
+         if (p.getPcb().getPrioridad() < mayorPrioridad) {
+            mayorPrioridad = p.getPcb().getPrioridad();
+            candidato = p;
+         }
+      }
+      
+      // Buscar en bloqueados suspendidos
+      Lista<Proceso> bloqueadosSuspendidos = this.colaBloqueadosSuspendidos.obtenerTodos();
+      for (int i = 0; i < bloqueadosSuspendidos.tamaño(); i++) {
+         Proceso p = bloqueadosSuspendidos.obtener(i);
+         if (p.getPcb().getPrioridad() < mayorPrioridad) {
+            mayorPrioridad = p.getPcb().getPrioridad();
+            candidato = p;
+         }
+      }
+      
+      return candidato;
+   }
+   
+   /**
     * Verifica si hay espacio para reanudar procesos suspendidos
+    * PRIORIZA los procesos de mayor prioridad para cargar a memoria
     */
    private void verificarReanudacionAutomatica() {
       if (getNumeroProcesosenMemoria() < LIMITE_MEMORIA && !this.colaListosSuspendidos.estaVacia()) {
-         // Reanudar el primer proceso suspendido
-         Lista<Proceso> suspendidos = this.colaListosSuspendidos.obtenerTodos();
-         if (suspendidos.tamaño() > 0) {
-            Proceso procesoAReanudar = suspendidos.obtener(0);
+         // Encontrar el proceso suspendido con MAYOR prioridad para reanudar
+         Proceso procesoAReanudar = encontrarProcesoMayorPrioridadSuspendido();
+         if (procesoAReanudar != null) {
             reanudarProceso(procesoAReanudar);
-            this.registrarEvento("SISTEMA: Proceso reanudado automáticamente - hay recursos disponibles");
+            this.registrarEvento("SISTEMA: Proceso de alta prioridad reanudado automáticamente (Prio: " + 
+                                procesoAReanudar.getPcb().getPrioridad() + ")");
          }
       }
    }
